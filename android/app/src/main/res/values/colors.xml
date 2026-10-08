@@ -1,5 +1,5 @@
 <resources>
-    <!-- Match --bg in src/template.html -->
+    <!-- Match the page background (bg) in src/template.html -->
     <color name="background">#ECEFF2</color>
     <color name="icon_background">#1B2129</color>
     <color name="icon_gold">#F1B532</color>
