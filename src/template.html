@@ -25,7 +25,7 @@
 *{box-sizing:border-box}
 [hidden]{display:none!important}
 body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.5;font-variant-numeric:tabular-nums}
-.wrap{max-width:760px;margin:0 auto;padding-inline:16px;padding-block:0 48px}
+.wrap{max-width:760px;transition:max-width .2s;margin:0 auto;padding-inline:16px;padding-block:0 48px}
 header.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);padding-block:14px 0;border-bottom:1px solid var(--line)}
 .brand{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
 .th{font-family:var(--f-display);font-size:22px;line-height:1;background:var(--gold);color:var(--surface);border-radius:10px;padding:8px 10px 6px;letter-spacing:.5px}
@@ -118,6 +118,38 @@ textarea{width:100%;min-height:150px;font:12px/1.4 ui-monospace,SFMono-Regular,M
 .eq:first-child{border-top:0}
 .eq .bar{grid-column:1 / -1}
 .muted{color:var(--muted)}
+.wrap.wide{max-width:1240px}
+.tl-tools{display:flex;gap:8px;flex-wrap:wrap;align-items:center;justify-content:space-between}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.seg button{font:inherit;font-weight:800;font-size:13px;padding:6px 12px;border:0;background:var(--surface);color:var(--muted);cursor:pointer}
+.seg button+button{border-left:1px solid var(--line)}
+.seg button[aria-pressed="true"]{background:var(--ink);color:var(--surface)}
+.tl{display:grid;grid-template-columns:92px minmax(0,1fr);background:var(--surface);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.tl-labels{border-right:1px solid var(--line);background:var(--sunk)}
+.tl-labels div{height:56px;white-space:nowrap;display:flex;align-items:center;padding:0 10px;font-weight:800;font-size:13px;border-top:1px solid var(--line)}
+.tl-labels div:first-child{height:34px;border-top:0;color:var(--muted);font-weight:700;font-size:12px}
+.tl-scroll{overflow-x:auto;position:relative}
+.tl-canvas{position:relative}
+.tl-axis{height:34px;position:relative;border-bottom:1px solid var(--line)}
+.tl-day{position:absolute;top:0;bottom:0;border-left:1px solid var(--line);font-size:12px;color:var(--muted);padding:3px 0 0 5px;white-space:nowrap}
+.tl-day.wk{color:var(--ink);font-weight:800}
+.tl-row{height:56px;position:relative;border-top:1px solid var(--line)}
+.tl-row:first-of-type{border-top:0}
+.tl-grid{position:absolute;top:34px;bottom:0;border-left:1px dashed var(--line);pointer-events:none}
+.tl-now{position:absolute;top:0;bottom:0;width:2px;background:var(--crit);z-index:3;pointer-events:none}
+.tl-bar{position:absolute;top:6px;height:44px;border-radius:7px;padding:4px 8px;overflow:hidden;white-space:nowrap;font-size:12px;line-height:1.3;border:1px solid transparent;box-sizing:border-box;z-index:2}
+.tl-bar b{display:block;font-size:12.5px;overflow:hidden;text-overflow:ellipsis}
+.tl-bar span{color:var(--muted);overflow:hidden;text-overflow:ellipsis;display:block}
+.tl-bar.k-hero{background:var(--gold-soft);border-color:var(--gold)}
+.tl-bar.k-gate{background:var(--warn-soft);border-color:var(--warn)}
+.tl-bar.k-th{background:var(--gold);color:var(--surface)} .tl-bar.k-th span{color:var(--surface)}
+.tl-bar.k-off{background:var(--sunk);border-color:var(--elixir)}
+.tl-bar.k-econ{background:var(--ok-soft);border-color:var(--ok)}
+.tl-bar.k-def{background:var(--sunk);border-color:var(--line)}
+.tl-bar.k-lab{background:var(--sunk);border-color:var(--elixir);border-style:dashed}
+.tl-bar.now-running{box-shadow:inset 3px 0 0 var(--crit)}
+.legend{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:12.5px;color:var(--muted)}
+.legend i{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:5px;vertical-align:-1px;border:1px solid}
 @media (prefers-reduced-motion: reduce){*{transition:none!important;animation:none!important}}
 </style>
 
@@ -132,6 +164,7 @@ textarea{width:100%;min-height:150px;font:12px/1.4 ui-monospace,SFMono-Regular,M
     </div>
     <nav class="tabs" role="tablist" id="tabs">
       <button role="tab" data-v="plan" aria-selected="true">Plan</button>
+      <button role="tab" data-v="timeline" aria-selected="false">Timeline</button>
       <button role="tab" data-v="lab" aria-selected="false">Lab &amp; Pets</button>
       <button role="tab" data-v="heroes" aria-selected="false">Heroes &amp; Gear</button>
       <button role="tab" data-v="tracker" aria-selected="false">Tracker</button>
@@ -141,6 +174,7 @@ textarea{width:100%;min-height:150px;font:12px/1.4 ui-monospace,SFMono-Regular,M
   </header>
   <main>
     <section class="view" id="v-plan"></section>
+    <section class="view" id="v-timeline" hidden></section>
     <section class="view" id="v-lab" hidden></section>
     <section class="view" id="v-heroes" hidden></section>
     <section class="view" id="v-tracker" hidden></section>
@@ -354,6 +388,91 @@ function labPlan(v){
   return {rows,rest,locked,blocking,cur:cur?{name:uDef(cur[0]).n,from:cur[1].lvl,finish:v.ts+cur[1].timer*1000}:null,lab,labCap:bCap(ID.LAB,th)};
 }
 
+
+// ---------- long-range timeline ----------
+function kindOf(kind,id){
+  if(kind==="h")return "hero";
+  if(id===ID.TH)return "th";
+  if(GATE.includes(id)||kind==="new")return "gate";
+  if(OFFENSE.includes(id))return "off";
+  if(ECON.includes(id))return "econ";
+  return "def";
+}
+// Run the rush rules forward: every builder that frees up takes the best open job, until the horizon.
+function simulateTimeline(v,labBlocking,days){
+  const st=makeState(v);const now=Date.now();const end=now+days*DAY*1000;
+  const total=SET.builders||builderCount(v);const jobs=busyJobs(v);
+  const rows=[];const q=[];const events=[];
+  jobs.slice(0,total).forEach((j,i)=>{rows[i]=[{name:j.name,from:j.from,to:j.from+1,start:v.ts,end:j.finish,cost:0,res:"",k:kindOf(j.kind,j.id),running:true}];q.push({row:i,at:j.finish,job:j})});
+  for(let k=rows.length;k<total;k++){rows[k]=[];q.push({row:k,at:now,job:null})}
+  let guard=0;
+  while(q.length&&guard++<600){
+    q.sort((a,b)=>a.at-b.at);const it=q.shift();
+    if(it.job){applyFinish(st,it.job);events.push({at:it.at,id:it.job.id,kind:it.job.kind,lvl:it.job.from+1})}
+    if(it.at>end)continue;
+    const c=candidates(st,v,labBlocking).find(c=>!c.blocked&&c.tier<6);
+    if(!c)continue;
+    applyStart(st,c);
+    const start=it.at,fin=start+Math.max(60,c.time)*1000;
+    rows[it.row].push({name:c.name,from:c.from,to:c.to,start,end:fin,cost:c.cost,res:c.res,k:kindOf(c.kind,c.id),newb:c.kind==="new"});
+    q.push({row:it.row,at:fin,job:{kind:c.kind==="h"?"h":"b",id:c.id,from:c.from,name:c.name,finish:fin}});
+  }
+  return {rows,events};
+}
+function simulateLab(v,events,days){
+  const end=Date.now()+days*DAY*1000;const bars=[];
+  const lvl={};for(const id in v.units)lvl[id]=v.units[id].lvl;
+  const labAt=t=>bLvl(v,ID.LAB)+events.filter(e=>e.id===ID.LAB&&e.at<=t).length;
+  const thAt=t=>v.th+events.filter(e=>e.id===ID.TH&&e.at<=t).length;
+  let t=Date.now();
+  const cur=Object.entries(v.units).find(([id,u])=>u.timer);
+  if(cur){const fin=v.ts+cur[1].timer*1000;bars.push({name:uDef(cur[0]).n,from:cur[1].lvl,to:cur[1].lvl+1,start:v.ts,end:fin,k:"lab",running:true});lvl[cur[0]]++;t=fin}
+  const farm=[...SET.farm,...SET.spells];
+  let guard=0;
+  while(t<end&&guard++<300){
+    const lab=labAt(t),th=thAt(t);
+    const open=Object.keys(lvl).map(Number).filter(id=>{const d=uDef(id);return lvl[id]<uCap(id,th)&&d.L[lvl[id]]&&d.L[lvl[id]][1]<=lab});
+    if(!open.length){const nxt=events.filter(e=>(e.id===ID.LAB||e.id===ID.TH)&&e.at>t).sort((a,b)=>a.at-b.at)[0];if(!nxt)break;t=nxt.at;continue}
+    open.sort((a,b)=>{const fa=farm.indexOf(a),fb=farm.indexOf(b);
+      if(fa>=0||fb>=0)return (fa<0?99:fa)-(fb<0?99:fb);
+      return lvl[a]/uCap(a,th)-lvl[b]/uCap(b,th)});
+    const id=open[0];const n=rNext(uDef(id),lvl[id]);
+    const fin=t+Math.max(60,n.time)*1000;
+    bars.push({name:uDef(id).n,from:lvl[id],to:lvl[id]+1,start:t,end:fin,cost:n.cost,res:uDef(id).r,k:"lab"});
+    lvl[id]++;t=fin;
+  }
+  return bars;
+}
+let TL_DAYS=store.get("tlDays",14);
+function renderTimeline(){
+  const el=document.getElementById("v-timeline");const lp=labPlan(V);
+  const sim=simulateTimeline(V,lp.blocking,60);const lab=simulateLab(V,sim.events,60);
+  const pxDay={7:170,14:110,30:56}[TL_DAYS]||110;
+  const now=Date.now();const d0=new Date(now);d0.setHours(0,0,0,0);const t0=d0.getTime();
+  const width=Math.round((TL_DAYS+1)*pxDay);const x=t=>(t-t0)/(DAY*1000)*pxDay;
+  const rows=[...sim.rows.map((r,i)=>({label:"Builder "+(i+1),bars:r})),{label:"Lab",bars:lab}];
+  let ax="",grid="";
+  for(let i=0;i<=TL_DAYS+1;i++){const d=new Date(t0+i*DAY*1000);const left=i*pxDay;
+    const wk=d.getDay()===1;const txt=(i===0||d.getDate()===1?d.toLocaleDateString(undefined,{month:"short"})+" ":"")+d.getDate()+(pxDay>=100?" "+d.toLocaleDateString(undefined,{weekday:"short"}):"");
+    ax+='<div class="tl-day'+(wk?" wk":"")+'" style="left:'+left+'px">'+esc(txt)+'</div>';grid+='<div class="tl-grid" style="left:'+left+'px"></div>';}
+  const bar=b=>{const l=Math.max(0,x(b.start)),r=Math.min(width,x(b.end));if(r<=0||l>=width||r-l<2)return "";
+    const lvl=b.newb?"new":b.from+" → "+b.to;const dt=dur((b.end-Math.max(b.start,b.running?now:b.start))/1000);
+    const cost=b.cost?' · <em class="'+resCls(b.res)+'" style="font-style:normal">'+num(b.cost)+'</em>':"";
+    const tip=b.name+" "+lvl+" · "+(b.running?"in progress, done ":"start "+when(b.start)+", done ")+when(b.end);
+    return '<div class="tl-bar k-'+b.k+(b.running?" now-running":"")+'" style="left:'+l+'px;width:'+(r-l-2)+'px" title="'+esc(tip)+'"><b>'+esc(b.name)+' '+lvl+'</b><span>'+(b.running?"done in "+dur((b.end-now)/1000):dur((b.end-b.start)/1000))+cost+'</span></div>'};
+  let h='<div class="tl-tools"><div><h2 style="margin:0">Builder timeline</h2><p class="sub">Your current upgrades, then what the rush rules start next on each builder.</p></div>'+
+    '<div class="seg" role="group" aria-label="Range">'+[[7,"1 week"],[14,"2 weeks"],[30,"1 month"]].map(([d,t])=>'<button data-d="'+d+'" aria-pressed="'+(d===TL_DAYS)+'">'+t+'</button>').join("")+'</div></div>';
+  h+='<div class="tl"><div class="tl-labels"><div>'+esc(new Date(now).toLocaleDateString(undefined,{month:"long"}))+'</div>'+rows.map(r=>'<div>'+r.label+'</div>').join("")+'</div>';
+  h+='<div class="tl-scroll" id="tlScroll"><div class="tl-canvas" style="width:'+width+'px"><div class="tl-axis">'+ax+'</div>'+grid+
+    rows.map(r=>'<div class="tl-row">'+r.bars.map(bar).join("")+'</div>').join("")+
+    '<div class="tl-now" style="left:'+x(now)+'px"></div></div></div></div>';
+  h+='<div class="legend"><span><i style="background:var(--gold-soft);border-color:var(--gold)"></i>Hero</span><span><i style="background:var(--warn-soft);border-color:var(--warn)"></i>Before next TH</span><span><i style="background:var(--gold);border-color:var(--gold)"></i>Town Hall</span><span><i style="background:var(--sunk);border-color:var(--elixir)"></i>Offense</span><span><i style="background:var(--ok-soft);border-color:var(--ok)"></i>Economy</span><span><i style="background:var(--sunk);border-color:var(--elixir);border-style:dashed"></i>Research</span></div>';
+  h+='<p class="sub">This is a forecast: it assumes you start each upgrade the moment a builder frees up and always have the loot. Paste a fresh export to re-plan.</p>';
+  el.innerHTML=h;
+  el.querySelectorAll(".seg button").forEach(b=>b.onclick=()=>{TL_DAYS=+b.dataset.d;store.set("tlDays",TL_DAYS);renderTimeline()});
+  
+}
+
 // ---------- render ----------
 let V=null;
 function load(){
@@ -554,16 +673,16 @@ function renderImport(){
   document.getElementById("bcount").onchange=e=>{const n=+e.target.value;SET.builders=n>0&&n!==builderCount(V)?n:0;store.set("settings",SET);renderAll(true)};
 }
 
-function renderAll(keepImport){headerMeta();renderPlan();renderLab();renderHeroes();renderTracker();renderGuide();if(!keepImport)renderImport();else{
+function renderAll(keepImport){headerMeta();renderPlan();renderTimeline();renderLab();renderHeroes();renderTracker();renderGuide();if(!keepImport)renderImport();else{
   // refresh pick states without wiping the paste box
   document.querySelectorAll(".pick").forEach(b=>b.setAttribute("aria-pressed",SET[b.dataset.k].includes(+b.dataset.id)))}}
 
 // tabs
 function show(v){document.querySelectorAll("#tabs button").forEach(b=>b.setAttribute("aria-selected",b.dataset.v===v));
-  document.querySelectorAll("section.view").forEach(s=>s.hidden=s.id!=="v-"+v);store.set("tab",v)}
+  document.querySelectorAll("section.view").forEach(s=>s.hidden=s.id!=="v-"+v);document.querySelector(".wrap").classList.toggle("wide",v==="timeline");store.set("tab",v)}
 document.getElementById("tabs").onclick=e=>{const b=e.target.closest("button");if(b)show(b.dataset.v)};
 
 load();renderAll();
-const initTab=(location.hash||"").slice(1);show(["plan","lab","heroes","tracker","guide","import"].includes(initTab)?initTab:store.get("tab","plan"));
+const initTab=(location.hash||"").slice(1);show(["plan","timeline","lab","heroes","tracker","guide","import"].includes(initTab)?initTab:store.get("tab","plan"));
 setInterval(()=>{headerMeta();renderPlan()},60000);
 </script>
