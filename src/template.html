@@ -243,7 +243,7 @@ const bLvl=(v,id)=>{const g=v.b[id];return g?Math.max(...g.map(x=>x.lvl)):0};
 const count=(g)=>g?g.reduce((a,x)=>a+x.n,0):0;
 
 // ---------- settings ----------
-const DEFAULT_SET={farm:[4000059,4000002,4000012],spells:[26000000,26000002,26000005],builders:0};
+const DEFAULT_SET={farm:[4000059,4000002,4000012],spells:[26000000,26000002,26000005],builders:0,style:"5d"};
 let SET=Object.assign({},DEFAULT_SET,store.get("settings",{}));
 
 // ---------- state for planning ----------
@@ -257,36 +257,6 @@ function makeState(v){
   return st;
 }
 
-// dlimms' 5D plan: start the Town Hall as soon as the rest of the checklist can still be
-// finished by the other builders before the Town Hall lands, so everything ends together.
-function thFits(st,v){
-  const t=st.t;const n=bNext(ID.TH,st.th);if(!n)return false;const deadline=t+n.time*1000;
-  const work=[],gateFree=[];let mustEnd=t;
-  for(const id of GATE){const cap=bCap(id,st.th);const L=GD.B[id].L;
-    for(const x of st.b[id]||[]){let rest=0;for(let l=x.lvl+(x.busy?1:0);l<cap;l++)rest+=L[l][1]*1000;
-      if(x.busy&&x.lvl<cap){mustEnd=Math.max(mustEnd,x.until+rest);gateFree.push(x.until+rest)}else if(rest)work.push(rest);}}
-  const req=requiredCounts(st.th);
-  for(const id in req){if([ID.WALL,ID.HUT,ID.BOB,ID.CRAFT].includes(+id)||!GD.B[id])continue;
-    if(st.th>=16&&[ID.CANNON,ID.AT,ID.WT].includes(+id))continue;
-    const have=(st.b[id]||[]).length;for(let k=have;k<req[id];k++)work.push(Math.max(60,GD.B[id].L[0][1])*1000);
-    for(const x of st.b[id]||[])if(x.lvl===0&&x.busy){mustEnd=Math.max(mustEnd,x.until);gateFree.push(x.until)}}
-  if(mustEnd>deadline)return false;
-  if(!work.length)return true;
-  // Builders left for that work: everyone except the Town Hall builder and the hero builder.
-  const main=mainHero(st,v);const avail=[];
-  for(const id in st.b)for(const x of st.b[id])if(x.busy&&!GATE.includes(+id)&&x.lvl>0)avail.push(x.until);
-  for(const id in st.h)if(st.h[id].busy&&+id!==main)avail.push(st.h[id].until);
-  for(const u of st.other)if(u>t)avail.push(u);
-  const busyCount=Object.values(st.b).flat().filter(x=>x.busy).length+Object.values(st.h).filter(h=>h.busy).length+st.other.filter(u=>u>t).length+(st.thBusy?1:0);
-  let free=st.total-busyCount-1;if(main&&!st.h[main].busy)free--;
-  for(let k=0;k<free;k++)avail.push(t);
-  // gate jobs already running free their builder for the next gate job
-  avail.push(...gateFree);
-  if(!avail.length)return false;
-  work.sort((a,b)=>b-a);avail.sort((a,b)=>a-b);
-  let end=t;for(const w of work){avail.sort((a,b)=>a-b);const s0=Math.max(t,avail.shift());end=Math.max(end,s0+w);avail.push(s0+w)}
-  return end<=deadline;
-}
 const sLvl=(st,id)=>st.b[id]&&st.b[id].length?Math.max(...st.b[id].map(x=>x.lvl)):0;
 
 function busyJobs(v){
@@ -310,27 +280,73 @@ function mainHero(st,v){
   return best;
 }
 
-function gateStatus(st,v){
-  // Things Tee Rush finishes before the next Town Hall.
-  const items=[];const req=requiredCounts(st.th);
-  for(const id of GATE){const inst=st.b[id]||[];const cap=bCap(id,st.th);
-    const left=inst.filter(x=>x.lvl<cap&&!x.busy).length,busy=inst.filter(x=>x.busy).length;
-    items.push({id,label:(inst.length>1?inst.length+"× ":"")+GD.B[id].n+" to "+cap,state:left?"todo":busy?"busy":"ok",left,busy});}
-  for(const id in req){
-    if(+id===ID.WALL||+id===ID.HUT||+id===ID.BOB||+id===ID.CRAFT||!GD.B[id])continue;
-    if(st.th>=16&&[ID.CANNON,ID.AT,ID.WT].includes(+id))continue; // merged at TH16+
-    const have=(st.b[id]||[]).length;const built=(st.b[id]||[]).filter(x=>x.lvl>0).length;const building=(st.b[id]||[]).filter(x=>x.lvl===0&&x.busy).length;
-    if(req[id]>0&&built<req[id]){
-      items.push({id:+id,newb:true,label:"Place "+req[id]+"× "+GD.B[id].n+" (new)",state:have<req[id]?"todo":building?"busy":"todo",left:req[id]-have,busy:building});
-    }
-  }
-  return items;
-}
 
 // Ranked candidate jobs for a builder, given the projected state.
+// dlimms' 5D Rush Plan: what to finish at each Town Hall (building, target level, how many).
+// Order is the table order in the plan. Other Town Halls fall back to Tee's checklist.
+const P5D={
+  13:[[ID.HH,7],[ID.LAB,11],[ID.BS,6],[ID.CC,9],[ID.SF,7],[ID.CAMP,11],[ID.DES,8],[ID.GS,14],[ID.ES,14]],
+  14:[[ID.HH,8],[ID.PET,3],[ID.LAB,12],[ID.BS,7],[ID.EAGLE,3],[ID.CC,10],[ID.DES,9],[ID.ES,15]],
+  15:[[ID.HH,9],[ID.PET,8],[ID.LAB,13],[ID.CC,11],[ID.SF,8],[ID.CAMP,12]],
+  16:[[ID.PET,10],[ID.LAB,14],[ID.CC,12],[ID.SF,9],[ID.AT,21,4],[ID.CANNON,21,4],[ID.EAGLE,7]]};
+const uses5D=th=>SET.style!=="tee"&&!!P5D[th];
+function gateList(th){
+  if(uses5D(th))return P5D[th].map(([id,t,n])=>({id,target:Math.min(t,bCap(id,th)),n:n||0}));
+  return GATE.map(id=>({id,target:bCap(id,th),n:0}));
+}
+// The instances a checklist entry covers (for "x4" entries, the four highest).
+function gateInst(st,g){const arr=(st.b[g.id]||[]).slice().sort((a,b)=>b.lvl-a.lvl);return g.n?arr.slice(0,g.n):arr}
+function newBuildingNeeds(st){
+  const req=requiredCounts(st.th);const out=[];
+  for(const id in req){if([ID.WALL,ID.HUT,ID.BOB,ID.CRAFT].includes(+id)||!GD.B[id])continue;
+    if(st.th>=16&&[ID.CANNON,ID.AT,ID.WT].includes(+id))continue; // merged at TH16+
+    const arr=st.b[id]||[];out.push({id:+id,req:req[id],have:arr.length,built:arr.filter(x=>x.lvl>0).length,building:arr.filter(x=>x.lvl===0&&x.busy)});}
+  return out;
+}
+
+// Start the Town Hall as soon as the rest of the checklist, packed onto the other builders,
+// still finishes before the Town Hall lands, so every builder finishes together (5D plan).
+function thFits(st,v){
+  const t=st.t;const n=bNext(ID.TH,st.th);if(!n)return false;const deadline=t+n.time*1000;
+  const work=[],gateFree=[];let mustEnd=t;const gl=gateList(st.th);
+  const seenBusy=new Set();
+  for(const g of gl){const L=GD.B[g.id].L;
+    for(const x of gateInst(st,g)){let rest=0;for(let l=x.lvl+(x.busy?1:0);l<g.target;l++)rest+=L[l][1]*1000;
+      if(x.busy){seenBusy.add(x);mustEnd=Math.max(mustEnd,x.until+rest);gateFree.push(x.until+rest)}else if(rest)work.push(rest);}}
+  for(const nb of newBuildingNeeds(st)){const L=GD.B[nb.id].L;const g=gl.find(g=>g.id===nb.id);const tgt=g?Math.max(1,g.target):1;
+    let one=0;for(let l=0;l<tgt;l++)one+=Math.max(60,L[l][1])*1000;
+    for(let k=nb.have;k<nb.req;k++)work.push(one);
+    for(const x of nb.building)if(!seenBusy.has(x)){mustEnd=Math.max(mustEnd,x.until);gateFree.push(x.until)}}
+  if(mustEnd>deadline)return false;
+  if(!work.length)return true;
+  // Builders left for that work: everyone except the Town Hall builder and the hero builder.
+  const main=mainHero(st,v);const avail=[];
+  for(const id in st.b)for(const x of st.b[id])if(x.busy&&!seenBusy.has(x)&&!(x.lvl===0))avail.push(x.until);
+  for(const id in st.h)if(st.h[id].busy&&+id!==main)avail.push(st.h[id].until);
+  for(const u of st.other)if(u>t)avail.push(u);
+  const busyCount=Object.values(st.b).flat().filter(x=>x.busy).length+Object.values(st.h).filter(h=>h.busy).length+st.other.filter(u=>u>t).length+(st.thBusy?1:0);
+  let free=st.total-busyCount-1;if(main&&!st.h[main].busy)free--;
+  for(let k=0;k<free;k++)avail.push(t);
+  avail.push(...gateFree);
+  if(!avail.length)return false;
+  work.sort((a,b)=>b-a);
+  let end=t;for(const w of work){avail.sort((a,b)=>a-b);const s0=Math.max(t,avail.shift());end=Math.max(end,s0+w);avail.push(s0+w)}
+  return end<=deadline;
+}
+function gateStatus(st,v){
+  const items=[];
+  for(const g of gateList(st.th)){if(!g.target)continue;const inst=gateInst(st,g);
+    const left=inst.filter(x=>x.lvl<g.target&&!x.busy).length,busy=inst.filter(x=>x.busy&&x.lvl<g.target).length;
+    if(!inst.length&&newBuildingNeeds(st).some(nb=>nb.id===g.id))continue; // shown as a new building below
+    items.push({id:g.id,label:(inst.length>1?inst.length+"× ":"")+GD.B[g.id].n+" to "+g.target,state:left?"todo":busy?"busy":"ok",left,busy});}
+  for(const nb of newBuildingNeeds(st))if(nb.req>0&&nb.built<nb.req){
+    const g=gateList(st.th).find(g=>g.id===nb.id);
+    items.push({id:nb.id,newb:true,label:"Place "+nb.req+"× "+GD.B[nb.id].n+(g&&g.target>1?" (new, to "+g.target+")":" (new)"),state:nb.have<nb.req?"todo":nb.building.length?"busy":"todo",left:nb.req-nb.have,busy:nb.building.length});}
+  return items;
+}
 function candidates(st,v,labBlocking){
   const out=[];const th=st.th;const hh=sLvl(st,ID.HH);
-  const main=mainHero(st,v);
+  const main=mainHero(st,v);const gl=gateList(th);const fived=uses5D(th);
   const add=(o)=>out.push(o);
   // heroes
   for(const id in st.h){const h=st.h[id];const cap=hCap(+id,th,hh),capT=hCap(+id,th);if(h.busy||h.lvl>=capT)continue;
@@ -340,31 +356,32 @@ function candidates(st,v,labBlocking){
       tier:isMain?1:4,ord:HERO_ORDER.indexOf(+id),blocked:blocked?"Needs Hero Hall "+GD.H[id].L[h.lvl][1]:"",
       why:isMain?(+id===HERO.AQ?"Keep one builder on the Archer Queen 24/7":"Hero closest to 8-day upgrades stays busy"):"Second hero, only when nothing above is open"});}
   // buildings
-  const gate=gateStatus(st,v);
   for(const id in st.b){const iid=+id;const g=GD.B[id];const cap=bCap(iid,th);
-    const free=st.b[id].filter(x=>!x.busy&&x.lvl<cap);if(!free.length)continue;
+    const gi=gl.findIndex(x=>x.id===iid);const ge=gl[gi];
+    const pool=ge?gateInst(st,ge).filter(x=>!x.busy&&x.lvl<ge.target):[];
+    const free=pool.length?pool:st.b[id].filter(x=>!x.busy&&x.lvl<cap);if(!free.length)continue;
     const lvl=Math.min(...free.map(x=>x.lvl));const n=bNext(iid,lvl);if(!n)continue;
     let tier=6,ord=50,why="Defense: skip unless a builder would sit idle or a Book of Building needs a target";
-    if(GATE.includes(iid)){tier=2;ord=GATE.indexOf(iid);why="Finish before the next Town Hall"}
-    else if(OFFENSE.includes(iid)){tier=3;ord=OFFENSE.indexOf(iid);why="Offense building: fill gaps with these";
-      if(iid===ID.PET)why="Pet House: prioritize once unlocked";
-      if(iid===ID.LAB&&labBlocking){tier=2;ord=9;why="Lab is blocking your farming army ("+labBlocking+")"}}
+    if(pool.length){tier=2;ord=gi;why=fived?"On the 5D plan for TH"+th+" (to "+ge.target+")":"Finish before the next Town Hall"}
+    else if(OFFENSE.includes(iid)){tier=3;ord=OFFENSE.indexOf(iid);why=fived?"Not on the 5D plan: only when a builder would sit idle":"Offense building: fill gaps with these";
+      if(iid===ID.PET&&!fived)why="Pet House: prioritize once unlocked";}
     else if(ECON.includes(iid)){tier=5;ord=ECON.indexOf(iid);why="Storages and collectors beat optional defenses"}
-    else if(th>=16&&(iid===ID.EAGLE||iid===ID.CANNON||iid===ID.AT)){tier=3;ord=20;why="Needed for the TH17 merge / unlocks"}
-    if(lvl===0){tier=2;ord=5;why="New building: finish construction"}
+    else if(!fived&&th>=16&&(iid===ID.EAGLE||iid===ID.CANNON||iid===ID.AT)){tier=3;ord=20;why="Needed for the TH17 merge / unlocks"}
+    if(iid===ID.LAB&&labBlocking&&tier>2){tier=2;ord=9;why="Lab is blocking your farming army ("+labBlocking+")"}
+    if(lvl===0){tier=2;ord=-1;why="New building: finish construction"}
     add({key:"b"+id+":"+lvl,kind:"b",id:iid,name:g.n,from:lvl,to:lvl+1,n:free.filter(x=>x.lvl===lvl).length,time:n.time,cost:n.cost,res:n.res,tier,ord,blocked:"",why});
   }
   // new buildings not yet placed
-  for(const it of gate)if(it.newb&&it.state==="todo"&&it.left>0){const n=bNext(it.id,0);
-    add({key:"new"+it.id,kind:"new",id:it.id,name:GD.B[it.id].n,from:0,to:1,n:it.left,time:n?n.time:0,cost:n?n.cost:0,res:GD.B[it.id].r,tier:2,ord:4,blocked:"",why:"New building for this Town Hall"});}
+  for(const nb of newBuildingNeeds(st))if(nb.have<nb.req){const n=bNext(nb.id,0);
+    add({key:"new"+nb.id,kind:"new",id:nb.id,name:GD.B[nb.id].n,from:0,to:1,n:nb.req-nb.have,time:n?n.time:0,cost:n?n.cost:0,res:GD.B[nb.id].r,tier:2,ord:-1,blocked:"",why:"New building for this Town Hall"});}
   // Town Hall
-  const gateOpen=!st.thBusy&&th<GD.B[ID.TH].L.length&&!thFits(st,v);
   const thCap=GD.B[ID.TH].L.length;
-  if(!st.thBusy&&th<thCap){const n=bNext(ID.TH,th);
+  if(!st.thBusy&&th<thCap){const n=bNext(ID.TH,th);const gateOpen=!thFits(st,v);
     add({key:"th",kind:"th",id:ID.TH,name:"Town Hall",from:th,to:th+1,time:n.time,cost:n.cost,res:"Gold",tier:gateOpen?3.5:1.5,ord:0,
       blocked:gateOpen?"Not yet: the rest of the TH"+th+" checklist wouldn't finish before the Town Hall does":"",why:gateOpen?"":"The rest of the checklist still finishes before the Town Hall does, so start it now"});}
   return out.sort((a,b)=>(a.blocked?1:0)-(b.blocked?1:0)||a.tier-b.tier||a.ord-b.ord||b.time-a.time);
 }
+
 
 function applyStart(st,c){
   const until=st.t+Math.max(60,c.time)*1000;
@@ -572,7 +589,7 @@ function renderPlan(){
 
   // TH checklist
   const nOk=gate.filter(x=>x.state==="ok").length;
-  h+='<div><h2>TH'+(V.th+1)+' checklist</h2><p class="sub" style="margin-bottom:8px">Tee Rush: finish these, then upgrade the Town Hall. Everything else fills gaps. '+nOk+' of '+gate.length+' done.</p><div class="list" style="padding:10px 12px"><div class="check">';
+  h+='<div><h2>TH'+(V.th+1)+' checklist</h2><p class="sub" style="margin-bottom:8px">'+(uses5D(V.th)?"From dlimms' 5D plan for TH"+V.th+".":"Tee Rush checklist.")+' The Town Hall starts once these will all finish before it lands. '+nOk+' of '+gate.length+' done.</p><div class="list" style="padding:10px 12px"><div class="check">';
   for(const it of gate){const mk={ok:"✓",busy:"…",todo:"○"}[it.state];
     const s=it.state==="ok"?"Done":it.state==="busy"?"Upgrading":(it.left+" to go"+(it.busy?" · "+it.busy+" upgrading":""));
     h+='<div class="ci '+it.state+'"><span class="mk">'+mk+'</span><span class="t">'+esc(it.label)+'</span><span class="s">'+s+'</span></div>';}
@@ -682,7 +699,7 @@ function renderGuide(){
   '<div class="here"><b>You are at TH'+th+'.</b> '+esc(ms)+'</div>'+
   '<h3>Builder order</h3><ol><li>One builder on the Archer Queen all the time.</li><li>Army Camps, Clan Castle, Hero Hall.</li><li>New buildings.</li><li>Upgrade the Town Hall as soon as 2 and 3 are done, or will be done by the time it lands. Start it early enough that every builder finishes together (dlimms\' 5D plan).</li></ol>'+
   '<p>Gap fillers in the meantime: Blacksmith, Lab, Barracks, Spell Factories, Workshop, Pet House (TH14+). Then a second hero, then storages and collectors.</p>'+
-  '<h3>Upgrade the Town Hall right away if</h3><ul><li>you can\'t spend or store more ore,</li><li>any hero is maxed,</li><li>walls or the Lab are maxed,</li><li>a builder would sit idle.</li></ul>'+
+  '<h3>dlimms\' 5D plan (TH13 to TH16)</h3><p>A building-by-building list for each Town Hall, timed so every builder finishes together. TH13: Hero Hall 7, Lab 11, Blacksmith 6, Clan Castle 9, Spell Factory 7, Army Camps 11, Dark Elixir Storage 8, Gold and Elixir Storages 14, both Scattershots. TH14: Hero Hall 8, Pet House 3, Lab 12, Blacksmith 7, Eagle 3, Clan Castle 10, Dark Elixir Storage 9, Elixir Storages 15. Barracks, Dark Barracks and Workshop aren\'t on it.</p><h3>Upgrade the Town Hall right away if</h3><ul><li>you can\'t spend or store more ore,</li><li>any hero is maxed,</li><li>walls or the Lab are maxed,</li><li>a builder would sit idle.</li></ul>'+
   '<h3>Lab</h3><ul><li>Max your farming army first, then donation troops, then your war army.</li><li>Upgrade the Lab only when it unlocks a level you need. If it blocks you, move it up.</li></ul>'+
   '<h3>Heroes and equipment</h3><ul><li>Get one hero into the 8-day upgrade range first. Then a lower hero, since gains per level drop off.</li><li>Max one equipment piece per hero, then a second for the Queen, Warden and Champion. One epic at a time. Guide picks: Action Figure, Meteor Staff.</li><li>After TH18, hero order: Queen = Warden, then Prince = Dragon Duke = Champion, then King.</li></ul>'+
   '<h3>Defenses and walls</h3><ul><li>Upgrade only the defenses a Town Hall upgrade needs.</li><li>Storages and collectors beat optional defenses.</li><li>Walls only with leftover loot. Never leave a builder idle for walls.</li></ul>'+
@@ -699,6 +716,7 @@ function renderImport(){
   '<textarea id="paste" placeholder=\'{"tag":"#...","timestamp":...,"buildings":[...]}\'></textarea>'+
   '<div class="btns" style="margin-top:8px"><button class="btn primary" id="loadBtn">Load export</button><button class="btn" id="resetBtn">Use the 8 Oct export</button></div><p class="msg" id="msg" role="status" style="margin-top:6px"></p></div>'+
   '<div><h2>Farming army</h2><p class="sub" style="margin-bottom:8px">These go to the top of the Lab list, in the order you pick them. Sneaky Goblins upgrade through the Goblin.</p><h3>Troops</h3>'+pick(troopIds,"farm")+'<h3 style="margin-top:10px">Spells</h3>'+pick(spellIds,"spells")+'</div>'+
+  '<div><h2>Builder plan</h2><p class="sub" style="margin-bottom:8px">What has to be done before each Town Hall.</p><div class="seg" role="group" aria-label="Builder plan"><button class="style" data-s="5d" aria-pressed="'+(SET.style!=="tee")+'">5D plan (TH13 to 16)</button><button class="style" data-s="tee" aria-pressed="'+(SET.style==="tee")+'">Tee checklist only</button></div></div>'+
   '<div><h2>Builders</h2><div class="field"><label for="bcount">Number of builders</label><input id="bcount" type="number" min="1" max="7" value="'+(SET.builders||builderCount(V))+'"><span class="sub">Read from your export: '+builderCount(V)+'</span></div></div>';
   const msg=(t,ok)=>{const m=document.getElementById("msg");m.textContent=t;m.className="msg "+(ok?"ok":"err")};
   document.getElementById("loadBtn").onclick=()=>{const t=document.getElementById("paste").value.trim();
@@ -706,6 +724,7 @@ function renderImport(){
     catch(e){msg(e instanceof SyntaxError?"That text isn't valid JSON. Copy the export again and paste the whole thing.":e.message,false)}};
   document.getElementById("resetBtn").onclick=()=>{store.set("village",null);V=parseVillage(SAMPLE);renderAll();msg("Back to the 8 Oct export.",true)};
   el.querySelectorAll(".pick").forEach(b=>b.onclick=()=>{const k=b.dataset.k,id=+b.dataset.id;const a=SET[k];const i=a.indexOf(id);if(i>=0)a.splice(i,1);else a.push(id);store.set("settings",SET);renderAll(true)});
+  el.querySelectorAll("button.style").forEach(b=>b.onclick=()=>{SET.style=b.dataset.s;store.set("settings",SET);el.querySelectorAll("button.style").forEach(x=>x.setAttribute("aria-pressed",x.dataset.s===SET.style));renderAll(true)});
   document.getElementById("bcount").onchange=e=>{const n=+e.target.value;SET.builders=n>0&&n!==builderCount(V)?n:0;store.set("settings",SET);renderAll(true)};
 }
 
