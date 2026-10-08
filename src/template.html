@@ -1,0 +1,568 @@
+<title>Rush Planner</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lilita+One&family=Nunito+Sans:opsz,wght@6..12,400;6..12,600;6..12,700;6..12,800&display=swap">
+<style>
+/* Layout: one narrow working column, sticky village header + tab bar, cards only for builder slots and alerts */
+:root{
+  --bg:#eceff2; --surface:#ffffff; --sunk:#f5f7f9; --ink:#1b2129; --muted:#5b6672; --line:#d6dce2;
+  --gold:#b27a00; --gold-soft:#fff3d1; --elixir:#8a3ccf; --de:#4a3566;
+  --ok:#2b7d46; --ok-soft:#e1f3e7; --warn:#a85f00; --warn-soft:#fdeed6; --crit:#b3312a; --crit-soft:#fbe3e1;
+  --bar:#dfe4ea;
+  --f-display:"Lilita One","Arial Rounded MT Bold","Trebuchet MS",sans-serif;
+  --f-body:"Nunito Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#12151a; --surface:#1b1f26; --sunk:#161a20; --ink:#e7eaee; --muted:#9aa5b1; --line:#2b313a;
+  --gold:#f1b532; --gold-soft:#3a2f12; --elixir:#c08cf5; --de:#b9a3d9;
+  --ok:#55c27e; --ok-soft:#163222; --warn:#f0a542; --warn-soft:#3a2a12; --crit:#f07067; --crit-soft:#3a1a18;
+  --bar:#2a3039; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#12151a; --surface:#1b1f26; --sunk:#161a20; --ink:#e7eaee; --muted:#9aa5b1; --line:#2b313a;
+  --gold:#f1b532; --gold-soft:#3a2f12; --elixir:#c08cf5; --de:#b9a3d9;
+  --ok:#55c27e; --ok-soft:#163222; --warn:#f0a542; --warn-soft:#3a2a12; --crit:#f07067; --crit-soft:#3a1a18;
+  --bar:#2a3039; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.5;font-variant-numeric:tabular-nums}
+.wrap{max-width:760px;margin:0 auto;padding-inline:16px;padding-block:0 48px}
+header.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);padding-block:14px 0;border-bottom:1px solid var(--line)}
+.brand{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.th{font-family:var(--f-display);font-size:22px;line-height:1;background:var(--gold);color:var(--surface);border-radius:10px;padding:8px 10px 6px;letter-spacing:.5px}
+.brand h1{font-family:var(--f-display);font-weight:400;font-size:24px;margin:0;letter-spacing:.3px}
+.meta{color:var(--muted);font-size:13px}
+nav.tabs{display:flex;gap:2px;overflow-x:auto;margin-top:10px;scrollbar-width:none}
+nav.tabs::-webkit-scrollbar{display:none}
+nav.tabs button{font:inherit;font-weight:700;font-size:14px;background:none;border:0;color:var(--muted);padding:8px 12px 10px;border-bottom:3px solid transparent;cursor:pointer;white-space:nowrap}
+nav.tabs button[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--gold)}
+nav.tabs button:focus-visible,button:focus-visible,textarea:focus-visible,input:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+section.view{display:flex;flex-direction:column;gap:22px;padding-top:18px}
+h2{font-family:var(--f-display);font-weight:400;font-size:20px;letter-spacing:.3px;margin:0 0 8px;text-wrap:balance}
+h3{font-size:13px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:0 0 6px;font-weight:800}
+p{margin:0}
+.sub{color:var(--muted);font-size:13.5px}
+.alerts{display:flex;flex-direction:column;gap:8px}
+.alert{border-radius:10px;padding:10px 12px;display:flex;gap:10px;align-items:flex-start;font-size:14px}
+.alert b{font-weight:800}
+.alert.crit{background:var(--crit-soft);color:var(--ink)}.alert.crit .dot{background:var(--crit)}
+.alert.warn{background:var(--warn-soft)}.alert.warn .dot{background:var(--warn)}
+.alert.ok{background:var(--ok-soft)}.alert.ok .dot{background:var(--ok)}
+.alert.info{background:var(--gold-soft)}.alert.info .dot{background:var(--gold)}
+.dot{width:9px;height:9px;border-radius:50%;flex:none;margin-top:6px}
+.slots{display:flex;flex-direction:column;gap:8px}
+.slot{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px 12px;display:grid;grid-template-columns:28px 1fr auto;gap:2px 10px;align-items:center}
+.slot .n{grid-row:span 2;font-family:var(--f-display);font-size:18px;color:var(--muted);text-align:center}
+.slot .now{font-weight:700;min-width:0}
+.slot .eta{font-weight:800;text-align:right;white-space:nowrap}
+.slot .next{grid-column:2 / span 2;font-size:13.5px;color:var(--muted);min-width:0}
+.slot .next b{color:var(--ink)}
+.slot.free{border-color:var(--crit);border-style:dashed}
+.slot.free .eta{color:var(--crit)}
+.slot.lab .n{color:var(--elixir)}
+.list{display:flex;flex-direction:column;background:var(--surface);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.row{display:grid;grid-template-columns:1fr auto;gap:2px 12px;padding:9px 12px;border-top:1px solid var(--line);align-items:center}
+.row:first-child{border-top:0}
+.row .name{font-weight:700;min-width:0}
+.row .why{grid-column:1 / -1;font-size:13px;color:var(--muted)}
+.row .right{text-align:right;font-size:13px;color:var(--muted);white-space:nowrap}
+.row.dim .name{color:var(--muted);font-weight:600}
+.chip{display:inline-block;font-size:11px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;border-radius:999px;padding:1px 8px;margin-right:6px;vertical-align:1px;border:1px solid var(--line);color:var(--muted)}
+.chip.t1{background:var(--gold);color:var(--surface);border-color:var(--gold)}
+.chip.t2{background:var(--gold-soft);color:var(--ink);border-color:var(--gold)}
+.chip.t3{color:var(--elixir);border-color:var(--elixir)}
+.chip.busy{background:var(--warn-soft);color:var(--warn);border-color:transparent}
+.chip.done{background:var(--ok-soft);color:var(--ok);border-color:transparent}
+.chip.block{background:var(--crit-soft);color:var(--crit);border-color:transparent}
+.check{display:flex;flex-direction:column;gap:6px}
+.ci{display:flex;gap:10px;align-items:baseline}
+.ci .mk{width:18px;flex:none;font-weight:800;text-align:center}
+.ci.ok .mk{color:var(--ok)} .ci.busy .mk{color:var(--warn)} .ci.todo .mk{color:var(--crit)}
+.ci .t{flex:1;min-width:0}
+.ci .s{color:var(--muted);font-size:13px;white-space:nowrap}
+.res-Gold{color:var(--gold)} .res-Elixir{color:var(--elixir)} .res-Dark{color:var(--de)}
+.bar{height:6px;border-radius:3px;background:var(--bar);overflow:hidden}
+.bar i{display:block;height:100%;background:var(--gold);border-radius:3px}
+.bar.full i{background:var(--ok)}
+.trow{display:grid;grid-template-columns:minmax(0,1fr) 92px;gap:2px 12px;padding:8px 12px;border-top:1px solid var(--line);align-items:center}
+.trow:first-child{border-top:0}
+.trow .lv{font-size:13px;color:var(--muted);text-align:right}
+.trow .bar{grid-column:1 / -1}
+.trow .inst{grid-column:1 / -1;font-size:12.5px;color:var(--muted)}
+.secthead{display:flex;justify-content:space-between;align-items:baseline;gap:12px;margin-bottom:6px}
+.pct{font-family:var(--f-display);font-size:18px}
+.summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px}
+.sum{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:8px 10px;display:flex;flex-direction:column;gap:4px}
+.sum span{font-size:12px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.06em}
+.sum b{font-family:var(--f-display);font-weight:400;font-size:20px}
+details{background:var(--surface);border:1px solid var(--line);border-radius:12px}
+details > summary{cursor:pointer;padding:10px 12px;font-weight:700;list-style:none}
+details > summary::-webkit-details-marker{display:none}
+details > summary::before{content:"▸";display:inline-block;width:16px;color:var(--muted)}
+details[open] > summary::before{content:"▾"}
+details .inner{border-top:1px solid var(--line)}
+.guide{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px 16px;display:flex;flex-direction:column;gap:10px;max-width:68ch}
+.guide ol,.guide ul{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:4px}
+.guide .here{background:var(--gold-soft);border-radius:8px;padding:8px 10px}
+textarea{width:100%;min-height:150px;font:12px/1.4 ui-monospace,SFMono-Regular,Menlo,monospace;background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:10px;padding:10px}
+.btns{display:flex;gap:8px;flex-wrap:wrap}
+.btn{font:inherit;font-weight:800;font-size:14px;border-radius:10px;padding:9px 14px;border:1px solid var(--line);background:var(--surface);color:var(--ink);cursor:pointer}
+.btn.primary{background:var(--gold);border-color:var(--gold);color:var(--surface)}
+.picks{display:flex;flex-wrap:wrap;gap:6px}
+.pick{font:inherit;font-size:13px;font-weight:700;border-radius:999px;padding:4px 10px;border:1px solid var(--line);background:var(--surface);color:var(--muted);cursor:pointer}
+.pick[aria-pressed="true"]{background:var(--elixir);border-color:var(--elixir);color:var(--surface)}
+.msg{font-size:14px;font-weight:700}
+.msg.err{color:var(--crit)} .msg.ok{color:var(--ok)}
+.field{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.field input{width:70px;font:inherit;padding:6px 8px;border-radius:8px;border:1px solid var(--line);background:var(--surface);color:var(--ink)}
+.eq{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 12px;padding:8px 12px;border-top:1px solid var(--line)}
+.eq:first-child{border-top:0}
+.eq .bar{grid-column:1 / -1}
+.muted{color:var(--muted)}
+@media (prefers-reduced-motion: reduce){*{transition:none!important;animation:none!important}}
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div class="brand">
+      <div class="th" id="thBadge">TH?</div>
+      <div style="min-width:0">
+        <h1>Rush Planner</h1>
+        <div class="meta" id="meta"></div>
+      </div>
+    </div>
+    <nav class="tabs" role="tablist" id="tabs">
+      <button role="tab" data-v="plan" aria-selected="true">Plan</button>
+      <button role="tab" data-v="lab" aria-selected="false">Lab &amp; Pets</button>
+      <button role="tab" data-v="heroes" aria-selected="false">Heroes &amp; Gear</button>
+      <button role="tab" data-v="tracker" aria-selected="false">Tracker</button>
+      <button role="tab" data-v="guide" aria-selected="false">Guide</button>
+      <button role="tab" data-v="import" aria-selected="false">Update</button>
+    </nav>
+  </header>
+  <main>
+    <section class="view" id="v-plan"></section>
+    <section class="view" id="v-lab" hidden></section>
+    <section class="view" id="v-heroes" hidden></section>
+    <section class="view" id="v-tracker" hidden></section>
+    <section class="view" id="v-guide" hidden></section>
+    <section class="view" id="v-import" hidden></section>
+  </main>
+</div>
+
+<script>
+/*GAMEDATA*/
+const SAMPLE = /*SAMPLE*/;
+</script>
+<script>
+"use strict";
+// ---------- ids ----------
+const ID={TH:1000001,CAMP:1000000,EC:1000002,ES:1000003,GM:1000004,GS:1000005,BAR:1000006,LAB:1000007,CANNON:1000008,AT:1000009,WALL:1000010,WT:1000011,CC:1000014,HUT:1000015,SF:1000020,DRILL:1000023,DES:1000024,DBAR:1000026,DSF:1000029,EAGLE:1000031,WS:1000059,BOB:1000064,PET:1000068,BS:1000070,HH:1000071,HELPER:1000093,CRAFT:1000097};
+const HERO={BK:28000000,AQ:28000001,GW:28000002,RC:28000004,MP:28000006};
+const HERO_ORDER=[HERO.AQ,HERO.GW,HERO.RC,HERO.MP,HERO.BK];
+const GATE=[ID.CAMP,ID.CC,ID.HH];                       // Tee Rush step 2
+const OFFENSE=[ID.PET,ID.BS,ID.LAB,ID.BAR,ID.DBAR,ID.SF,ID.DSF,ID.WS]; // gap fillers (general list step 2-4a)
+const ECON=[ID.GS,ID.ES,ID.DES,ID.GM,ID.EC,ID.DRILL];
+const PET_TIERS=[["P1",["Frosty","Phoenix","Sneezy"]],["P2",["Angry Jelly","Electro Owl","Unicorn","Spirit Fox"]],["P3",["Mighty Yak","Poison Lizard","Diggy"]],["Last",["L.A.S.S.I"]]];
+const DAY=86400;
+
+// ---------- storage (per-browser convenience only) ----------
+const store={get(k,d){try{const v=localStorage.getItem("rp:"+k);return v==null?d:JSON.parse(v)}catch(e){return d}},set(k,v){try{localStorage.setItem("rp:"+k,JSON.stringify(v))}catch(e){}}};
+
+// ---------- formatting ----------
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+function dur(sec){sec=Math.max(0,Math.round(sec));const d=Math.floor(sec/DAY),h=Math.floor(sec%DAY/3600),m=Math.floor(sec%3600/60);
+  if(d)return d+"d "+h+"h"; if(h)return h+"h "+m+"m"; return m+"m";}
+function num(n){if(n>=1e6)return(+(n/1e6).toFixed(n>=1e7?1:2))+"M";if(n>=1e3)return(+(n/1e3).toFixed(n>=1e4?0:1))+"K";return String(n)}
+const resCls=r=>r==="Dark Elixir"?"res-Dark":r==="Gold"?"res-Gold":r==="Elixir"?"res-Elixir":"";
+const when=ms=>{const d=new Date(ms);return d.toLocaleString(undefined,{weekday:"short",hour:"numeric",minute:"2-digit"})};
+
+// ---------- level math ----------
+function capBy(L,ok){let m=0;L.forEach((l,i)=>{if(ok(l))m=Math.max(m,i+1)});return m}
+const bCap=(id,th)=>{const g=GD.B[id]||GD.T[id];return g?capBy(g.L,l=>l[0]<=th):0};
+const hCap=(id,th,hh)=>capBy(GD.H[id].L,l=>l[0]<=th&&(hh==null||l[1]<=hh));
+const uDef=id=>GD.U[id]||GD.SP[id];
+const uCap=(id,th,lab)=>capBy(uDef(id).L,l=>l[0]<=th&&(lab==null||l[1]<=lab));
+const pCap=(id,th,ph)=>capBy(GD.P[id].L,l=>l[0]<=th&&(ph==null||l[1]<=ph));
+const eCap=(id,th,bs)=>GD.E[id]?capBy(GD.E[id].L,l=>l[0]<=th&&(bs==null||l[1]<=bs)):0;
+function bNext(id,lvl){const g=GD.B[id]||GD.T[id];const l=g&&g.L[lvl];return l?{time:l[1],cost:l[2],res:g.r}:null}
+function rNext(def,lvl){const cur=def.L[lvl-1];return cur?{time:cur[2],cost:cur[3],req:def.L[lvl]?def.L[lvl][1]:99}:null}
+
+// ---------- parse export ----------
+function parseVillage(j){
+  if(!j||!Array.isArray(j.buildings))throw new Error("That doesn't look like a village export. It should start with {\"tag\":\"#...\" and contain \"buildings\".");
+  const v={tag:j.tag||"",ts:(j.timestamp||Date.now()/1000)*1000,th:0,thTimer:0,b:{},traps:{},units:{},heroes:{},pets:{},equip:{},helpers:{}};
+  for(const e of j.buildings){
+    if(e.data===ID.TH){v.th=e.lvl;v.thTimer=e.timer||0;continue}
+    if(!GD.B[e.data]||e.lvl==null)continue;
+    (v.b[e.data]||(v.b[e.data]=[])).push({lvl:e.lvl,n:e.cnt||1,timer:e.timer||0});
+  }
+  for(const e of j.traps||[]){if(GD.T[e.data])(v.traps[e.data]||(v.traps[e.data]=[])).push({lvl:e.lvl,n:e.cnt||1,timer:e.timer||0})}
+  for(const e of [...(j.units||[]),...(j.siege_machines||[]),...(j.spells||[])]){if(uDef(e.data))v.units[e.data]={lvl:e.lvl,timer:e.timer||0}}
+  for(const e of j.heroes||[]){if(GD.H[e.data])v.heroes[e.data]={lvl:e.lvl,timer:e.timer||0}}
+  for(const e of j.pets||[]){if(GD.P[e.data])v.pets[e.data]={lvl:e.lvl,timer:e.timer||0}}
+  for(const e of j.equipment||[])v.equip[e.data]=e.lvl;
+  for(const e of j.helpers||[])v.helpers[e.data]=e.lvl;
+  if(!v.th)throw new Error("Couldn't find the Town Hall in this export.");
+  return v;
+}
+const bLvl=(v,id)=>{const g=v.b[id];return g?Math.max(...g.map(x=>x.lvl)):0};
+const count=(g)=>g?g.reduce((a,x)=>a+x.n,0):0;
+
+// ---------- settings ----------
+const DEFAULT_SET={farm:[4000059,4000002,4000012],spells:[26000000,26000002,26000005],builders:0};
+let SET=Object.assign({},DEFAULT_SET,store.get("settings",{}));
+
+// ---------- state for planning ----------
+// Expanded per-instance state so the planner can simulate builders finishing.
+function makeState(v){
+  const st={th:v.th,thBusy:!!v.thTimer,b:{},h:{}};
+  for(const id in v.b){if(+id===ID.WALL)continue;st.b[id]=[];for(const g of v.b[id])for(let k=0;k<g.n;k++)st.b[id].push({lvl:g.lvl,busy:!!g.timer})}
+  for(const id in v.heroes)st.h[id]={lvl:v.heroes[id].lvl,busy:!!v.heroes[id].timer};
+  return st;
+}
+const sLvl=(st,id)=>st.b[id]&&st.b[id].length?Math.max(...st.b[id].map(x=>x.lvl)):0;
+
+function busyJobs(v){
+  const out=[];const t0=v.ts;
+  if(v.thTimer)out.push({kind:"b",id:ID.TH,name:"Town Hall",from:v.th,finish:t0+v.thTimer*1000});
+  for(const id in v.b)for(const g of v.b[id])if(g.timer)out.push({kind:"b",id:+id,name:GD.B[id].n,from:g.lvl,finish:t0+g.timer*1000});
+  for(const id in v.traps)for(const g of v.traps[id])if(g.timer)out.push({kind:"b",id:+id,name:GD.T[id].n,from:g.lvl,finish:t0+g.timer*1000});
+  for(const id in v.heroes){const h=v.heroes[id];if(h.timer)out.push({kind:"h",id:+id,name:GD.H[id].n,from:h.lvl,finish:t0+h.timer*1000})}
+  return out.sort((a,b)=>a.finish-b.finish);
+}
+
+function requiredCounts(th){const c={};for(let t=1;t<=th;t++)for(const [id,q] of (GD.UNL[t]||[]))c[id]=(c[id]||0)+q;return c}
+
+function mainHero(st,v){
+  // Tee: one builder on the Archer Queen 24/7; if she is capped or blocked, the hero closest to 8-day upgrades.
+  const hh=sLvl(st,ID.HH);
+  const ok=id=>st.h[id]&&st.h[id].lvl<hCap(+id,st.th,hh);
+  if(ok(HERO.AQ))return HERO.AQ;
+  let best=null,bt=-1;
+  for(const id in st.h){if(!ok(id))continue;const n=rNext(GD.H[id],st.h[id].lvl);if(n&&n.time>bt){bt=n.time;best=+id}}
+  return best;
+}
+
+function gateStatus(st,v){
+  // Things Tee Rush finishes before the next Town Hall.
+  const items=[];const req=requiredCounts(st.th);
+  for(const id of GATE){const inst=st.b[id]||[];const cap=bCap(id,st.th);
+    const left=inst.filter(x=>x.lvl<cap&&!x.busy).length,busy=inst.filter(x=>x.busy).length;
+    items.push({id,label:(inst.length>1?inst.length+"× ":"")+GD.B[id].n+" to "+cap,state:left?"todo":busy?"busy":"ok",left,busy});}
+  for(const id in req){
+    if(+id===ID.WALL||+id===ID.HUT||+id===ID.BOB||+id===ID.CRAFT||!GD.B[id])continue;
+    if(st.th>=16&&[ID.CANNON,ID.AT,ID.WT].includes(+id))continue; // merged at TH16+
+    const have=(st.b[id]||[]).length;const built=(st.b[id]||[]).filter(x=>x.lvl>0).length;const building=(st.b[id]||[]).filter(x=>x.lvl===0&&x.busy).length;
+    if(req[id]>0&&built<req[id]){
+      items.push({id:+id,newb:true,label:"Place "+req[id]+"× "+GD.B[id].n+" (new)",state:have<req[id]?"todo":building?"busy":"todo",left:req[id]-have,busy:building});
+    }
+  }
+  return items;
+}
+
+// Ranked candidate jobs for a builder, given the projected state.
+function candidates(st,v,labBlocking){
+  const out=[];const th=st.th;const hh=sLvl(st,ID.HH);
+  const main=mainHero(st,v);
+  const add=(o)=>out.push(o);
+  // heroes
+  for(const id in st.h){const h=st.h[id];const cap=hCap(+id,th,hh),capT=hCap(+id,th);if(h.busy||h.lvl>=capT)continue;
+    const n=rNext(GD.H[id],h.lvl);const blocked=h.lvl>=cap;
+    const isMain=+id===main||(th>=18&&[HERO.AQ,HERO.GW,HERO.RC].includes(+id));
+    add({key:"h"+id,kind:"h",id:+id,name:GD.H[id].n,from:h.lvl,to:h.lvl+1,time:n.time,cost:n.cost,res:GD.H[id].r,
+      tier:isMain?1:4,ord:HERO_ORDER.indexOf(+id),blocked:blocked?"Needs Hero Hall "+GD.H[id].L[h.lvl][1]:"",
+      why:isMain?(+id===HERO.AQ?"Keep one builder on the Archer Queen 24/7":"Hero closest to 8-day upgrades stays busy"):"Second hero, only when nothing above is open"});}
+  // buildings
+  const gate=gateStatus(st,v);
+  for(const id in st.b){const iid=+id;const g=GD.B[id];const cap=bCap(iid,th);
+    const free=st.b[id].filter(x=>!x.busy&&x.lvl<cap);if(!free.length)continue;
+    const lvl=Math.min(...free.map(x=>x.lvl));const n=bNext(iid,lvl);if(!n)continue;
+    let tier=6,ord=50,why="Defense: skip unless a builder would sit idle or a Book of Building needs a target";
+    if(GATE.includes(iid)){tier=2;ord=GATE.indexOf(iid);why="Finish before the next Town Hall"}
+    else if(OFFENSE.includes(iid)){tier=3;ord=OFFENSE.indexOf(iid);why="Offense building: fill gaps with these";
+      if(iid===ID.PET)why="Pet House: prioritize once unlocked";
+      if(iid===ID.LAB&&labBlocking){tier=2;ord=9;why="Lab is blocking your farming army ("+labBlocking+")"}}
+    else if(ECON.includes(iid)){tier=5;ord=ECON.indexOf(iid);why="Storages and collectors beat optional defenses"}
+    else if(th>=16&&(iid===ID.EAGLE||iid===ID.CANNON||iid===ID.AT)){tier=3;ord=20;why="Needed for the TH17 merge / unlocks"}
+    if(lvl===0){tier=2;ord=5;why="New building: finish construction"}
+    add({key:"b"+id+":"+lvl,kind:"b",id:iid,name:g.n,from:lvl,to:lvl+1,n:free.filter(x=>x.lvl===lvl).length,time:n.time,cost:n.cost,res:n.res,tier,ord,blocked:"",why});
+  }
+  // new buildings not yet placed
+  for(const it of gate)if(it.newb&&it.state==="todo"&&it.left>0){const n=bNext(it.id,0);
+    add({key:"new"+it.id,kind:"new",id:it.id,name:GD.B[it.id].n,from:0,to:1,n:it.left,time:n?n.time:0,cost:n?n.cost:0,res:GD.B[it.id].r,tier:2,ord:4,blocked:"",why:"New building for this Town Hall"});}
+  // Town Hall
+  const gateOpen=gate.some(x=>x.state!=="ok");
+  const thCap=GD.B[ID.TH].L.length;
+  if(!st.thBusy&&th<thCap){const n=bNext(ID.TH,th);
+    add({key:"th",kind:"th",id:ID.TH,name:"Town Hall",from:th,to:th+1,time:n.time,cost:n.cost,res:"Gold",tier:gateOpen?3.5:1.5,ord:0,
+      blocked:gateOpen?"Finish the TH"+th+" checklist first":"",why:gateOpen?"Tee Rush: upgrade as soon as camps, Clan Castle, Hero Hall and new buildings are done":"Checklist done: rush to TH"+(th+1)});}
+  return out.sort((a,b)=>(a.blocked?1:0)-(b.blocked?1:0)||a.tier-b.tier||a.ord-b.ord||b.time-a.time);
+}
+
+function applyStart(st,c){
+  if(c.kind==="h")st.h[c.id].busy=true;
+  else if(c.kind==="th")st.thBusy=true;
+  else if(c.kind==="new"){(st.b[c.id]||(st.b[c.id]=[])).push({lvl:0,busy:true})}
+  else{const x=st.b[c.id].find(x=>!x.busy&&x.lvl===c.from);if(x)x.busy=true}
+}
+function applyFinish(st,j){
+  if(j.kind==="h"){st.h[j.id].lvl=j.from+1;st.h[j.id].busy=false;return}
+  if(j.id===ID.TH){st.th=j.from+1;st.thBusy=false;return}
+  const arr=st.b[j.id];if(!arr)return;const x=arr.find(x=>x.busy&&x.lvl===j.from);if(x){x.lvl++;x.busy=false}
+}
+
+// Simulate: each builder that frees up takes the best open job.
+function simulate(v,labBlocking){
+  const st=makeState(v);const jobs=busyJobs(v);
+  const total=SET.builders||builderCount(v);
+  const free=Math.max(0,total-jobs.length);const slots=[];
+  for(let k=0;k<free;k++){const c=candidates(st,v,labBlocking).find(c=>!c.blocked&&c.tier<6);slots.push({job:null,next:c||null,at:Date.now()});if(c)applyStart(st,c)}
+  for(const j of jobs){applyFinish(st,j);
+    let c=null;
+    if(j.kind==="h"&&mainHero(st,v)===j.id&&!st.h[j.id].busy){c=candidates(st,v,labBlocking).find(x=>x.kind==="h"&&x.id===j.id&&!x.blocked)}
+    if(!c)c=candidates(st,v,labBlocking).find(c=>!c.blocked&&c.tier<6);
+    slots.push({job:j,next:c||null,at:j.finish});if(c)applyStart(st,c);}
+  return slots;
+}
+function builderCount(v){return count(v.b[ID.HUT])+(v.b[ID.BOB]?1:0)}
+
+// ---------- lab ----------
+function labPlan(v){
+  const th=v.th,lab=bLvl(v,ID.LAB);const rows=[];let blocking="";
+  const cur=Object.entries(v.units).find(([id,u])=>u.timer);
+  const order=[...SET.farm.map(id=>[id,"Farming army"]),...SET.spells.map(id=>[id,"Farming spells"])];
+  const seen=new Set();
+  for(const [id,tag] of order){if(seen.has(id))continue;seen.add(id);const def=uDef(id);if(!def)continue;const u=v.units[id];
+    if(!u){rows.push({id,name:def.n,tag,state:"locked",note:"Unlocks with "+def.pb+" "+def.pl});continue}
+    const capT=uCap(id,th),capNow=uCap(id,th,lab);
+    if(u.lvl>=capT){rows.push({id,name:def.n,tag,state:"max",lvl:u.lvl,cap:capT});continue}
+    const n=rNext(def,u.lvl);
+    if(u.lvl>=capNow&&!blocking)blocking=def.n+" "+(u.lvl+1)+" needs Lab "+n.req;
+    rows.push({id,name:def.n,tag,state:u.timer?"busy":u.lvl>=capNow?"block":"go",lvl:u.lvl,cap:capT,time:n.time,cost:n.cost,res:def.r,req:n.req});
+  }
+  const rest=[];
+  for(const id in v.units){if(seen.has(+id))continue;const def=uDef(id);const u=v.units[id];const capT=uCap(+id,th);if(u.lvl>=capT)continue;
+    const capNow=uCap(+id,th,lab);const n=rNext(def,u.lvl);
+    rest.push({id:+id,name:def.n,tag:"Everything else",state:u.timer?"busy":u.lvl>=capNow?"block":"go",lvl:u.lvl,cap:capT,time:n.time,cost:n.cost,res:def.r,req:n.req,pct:u.lvl/capT});}
+  rest.sort((a,b)=>(a.state==="block")-(b.state==="block")||a.pct-b.pct);
+  // troops/spells that this TH can unlock but aren't unlocked yet
+  const locked=[];
+  for(const id in Object.assign({},GD.U,GD.SP)){if(v.units[id])continue;const def=uDef(id);if(!def.L.length||def.L[0][0]>th)continue;
+    const pbId={"Barracks":ID.BAR,"Dark Barracks":ID.DBAR,"Spell Factory":ID.SF,"Dark Spell Factory":ID.DSF,"Workshop":ID.WS}[def.pb];
+    if(!pbId)continue;if(def.pl>bCap(pbId,th))continue;
+    locked.push({name:def.n,need:def.pb+" "+def.pl,have:bLvl(v,pbId)});}
+  return {rows,rest,locked,blocking,cur:cur?{name:uDef(cur[0]).n,from:cur[1].lvl,finish:v.ts+cur[1].timer*1000}:null,lab,labCap:bCap(ID.LAB,th)};
+}
+
+// ---------- render ----------
+let V=null;
+function load(){
+  const saved=store.get("village",null);
+  try{V=parseVillage(saved||SAMPLE)}catch(e){V=parseVillage(SAMPLE)}
+}
+function headerMeta(){
+  document.getElementById("thBadge").textContent="TH"+V.th;
+  const age=(Date.now()-V.ts)/1000;
+  document.getElementById("meta").innerHTML=esc(V.tag)+" · data from "+(age<60?"just now":dur(age)+" ago")+" · home village";
+}
+
+function chip(c){
+  if(c.blocked)return '<span class="chip block">Blocked</span>';
+  return ({1:'<span class="chip t1">Hero</span>',1.5:'<span class="chip t1">Rush</span>',2:'<span class="chip t2">Before TH</span>',3:'<span class="chip t3">Offense</span>',3.5:'<span class="chip">Next TH</span>',4:'<span class="chip">2nd hero</span>',5:'<span class="chip">Economy</span>',6:'<span class="chip">Skip</span>'})[c.tier]||"";
+}
+function jobLabel(c){
+  if(!c)return "nothing worth a builder";
+  if(c.kind==="new")return "Build "+esc(c.name)+(c.n>1?" ×"+c.n:"");
+  if(c.kind==="th")return "Town Hall "+c.from+" → "+c.to;
+  return esc(c.name)+" "+c.from+" → "+c.to;
+}
+function costTxt(c){return c.cost?'<span class="'+resCls(c.res)+'">'+num(c.cost)+'</span> · '+dur(c.time):dur(c.time)}
+
+function renderPlan(){
+  const el=document.getElementById("v-plan");
+  const lp=labPlan(V);
+  const slots=simulate(V,lp.blocking);
+  const st=makeState(V);
+  const cands=candidates(st,V,lp.blocking);
+  const gate=gateStatus(st,V);
+  const now=Date.now();
+  const alerts=[];
+  const freeNow=slots.filter(s=>!s.job).length;
+  if(freeNow)alerts.push(["crit","<b>"+freeNow+" builder"+(freeNow>1?"s are":" is")+" idle.</b> Start "+slots.filter(s=>!s.job&&s.next).map(s=>jobLabel(s.next)).join(", ")+"."]);
+  const aq=V.heroes[HERO.AQ];
+  if(aq&&!aq.timer&&aq.lvl<hCap(HERO.AQ,V.th))alerts.push(["warn","<b>The Archer Queen isn't upgrading.</b> Tee's rule is one builder on her at all times."]);
+  const done=slots.filter(s=>s.job&&s.job.finish<now);
+  if(done.length)alerts.push(["info","<b>"+done.length+" upgrade"+(done.length>1?"s have":" has")+" probably finished</b> since this export. Paste a fresh export on the Update tab."]);
+  const hh=bLvl(V,ID.HH);
+  for(const id in GD.H){if(V.heroes[id])continue;const L=GD.H[id].L[0];if(L[0]<=V.th&&L[1]<=hh)alerts.push(["info","<b>Recruit the "+esc(GD.H[id].n)+"</b> in the Hero Hall; it's unlocked."]);
+    else if(L[0]<=V.th&&(V.b[ID.HH]||[]).some(g=>g.timer)&&L[1]===hh+1)alerts.push(["info","<b>"+esc(GD.H[id].n)+" unlocks</b> when the Hero Hall upgrade finishes. Recruit right away."]);}
+  const capped=Object.keys(V.heroes).filter(id=>V.heroes[id].lvl>=hCap(+id,V.th));
+  if(capped.length&&V.th<GD.B[ID.TH].L.length)alerts.push(["ok","<b>"+capped.map(id=>esc(GD.H[id].n)).join(", ")+" maxed for TH"+V.th+".</b> Per the guide, a maxed hero means it's time to upgrade the Town Hall."]);
+  if(lp.blocking){const labUp=(V.b[ID.LAB]||[]).some(g=>g.timer);alerts.push(labUp?["info","<b>"+esc(lp.blocking)+".</b> The Lab upgrade already running unlocks it."]:["warn","<b>Lab is the bottleneck:</b> "+esc(lp.blocking)+". The Lab moved up your builder list."]);}
+  const thCand=cands.find(c=>c.kind==="th");
+  if(thCand&&!thCand.blocked)alerts.unshift(["ok","<b>Ready for TH"+(V.th+1)+".</b> Your TH"+V.th+" checklist is done, so the next free builder goes on the Town Hall."]);
+
+  let h="";
+  if(alerts.length)h+='<div class="alerts">'+alerts.map(([k,t])=>'<div class="alert '+k+'"><span class="dot"></span><div>'+t+'</div></div>').join("")+'</div>';
+
+  h+='<div><h2>Builders</h2><p class="sub" style="margin-bottom:8px">What each builder is doing, and what to start the moment it frees up.</p><div class="slots">';
+  slots.sort((a,b)=>a.at-b.at).forEach((s,i)=>{
+    if(!s.job){h+='<div class="slot free"><div class="n">'+(i+1)+'</div><div class="now">Idle</div><div class="eta">Now</div><div class="next">Start <b>'+jobLabel(s.next)+'</b>'+(s.next?' · '+costTxt(s.next):'')+'</div></div>';return}
+    const left=(s.job.finish-now)/1000;
+    h+='<div class="slot"><div class="n">'+(i+1)+'</div><div class="now">'+esc(s.job.name)+' '+(s.job.from)+' → '+(s.job.from+1)+'</div><div class="eta">'+(left>0?dur(left):"Done?")+'</div><div class="next">'+when(s.job.finish)+' · then <b>'+jobLabel(s.next)+'</b>'+(s.next?' · '+costTxt(s.next):'')+'</div></div>';
+  });
+  if(lp.cur)h+='<div class="slot lab"><div class="n">⚗</div><div class="now">Lab: '+esc(lp.cur.name)+' '+lp.cur.from+' → '+(lp.cur.from+1)+'</div><div class="eta">'+dur((lp.cur.finish-now)/1000)+'</div><div class="next">Then <b>'+esc((lp.rows.find(r=>r.state==="go")||lp.rest.find(r=>r.state==="go")||{name:"see Lab tab"}).name)+'</b> (see Lab &amp; Pets)</div></div>';
+  else h+='<div class="slot free lab"><div class="n">⚗</div><div class="now">Lab idle</div><div class="eta">Now</div><div class="next">Start <b>'+esc((lp.rows.find(r=>r.state==="go")||lp.rest.find(r=>r.state==="go")||{name:"nothing"}).name)+'</b></div></div>';
+  h+='</div></div>';
+
+  // TH checklist
+  const nOk=gate.filter(x=>x.state==="ok").length;
+  h+='<div><h2>TH'+(V.th+1)+' checklist</h2><p class="sub" style="margin-bottom:8px">Tee Rush: finish these, then upgrade the Town Hall. Everything else fills gaps. '+nOk+' of '+gate.length+' done.</p><div class="list" style="padding:10px 12px"><div class="check">';
+  for(const it of gate){const mk={ok:"✓",busy:"…",todo:"○"}[it.state];
+    const s=it.state==="ok"?"Done":it.state==="busy"?"Upgrading":(it.left+" to go"+(it.busy?" · "+it.busy+" upgrading":""));
+    h+='<div class="ci '+it.state+'"><span class="mk">'+mk+'</span><span class="t">'+esc(it.label)+'</span><span class="s">'+s+'</span></div>';}
+  h+='</div></div></div>';
+
+  // Priority queue
+  const open=cands.filter(c=>c.tier<6);
+  h+='<div><h2>Priority list</h2><p class="sub" style="margin-bottom:8px">Every open upgrade, ranked by the guide. Busy items are left out.</p><div class="list">';
+  for(const c of open)h+='<div class="row'+(c.blocked?" dim":"")+'"><div class="name">'+chip(c)+jobLabel(c)+(c.n>1&&c.kind!=="new"?' <span class="muted">×'+c.n+'</span>':'')+'</div><div class="right">'+costTxt(c)+'</div><div class="why">'+esc(c.blocked||c.why)+'</div></div>';
+  h+='</div></div>';
+
+  const skip=cands.filter(c=>c.tier>=6);
+  const walls=V.b[ID.WALL]||[];const wcap=bCap(ID.WALL,V.th);const wmax=walls.filter(g=>g.lvl>=wcap).reduce((a,g)=>a+g.n,0);
+  h+='<details><summary>Skip for now: '+skip.length+' defense and trap upgrades</summary><div class="inner"><div class="list" style="border:0;border-radius:0">';
+  h+='<div class="row"><div class="name">Walls</div><div class="right">'+wmax+'/'+count(walls)+' at '+wcap+'</div><div class="why">Only with leftover gold or elixir when storages are full. Never take a builder for walls.</div></div>';
+  for(const c of skip)h+='<div class="row dim"><div class="name">'+jobLabel(c)+(c.n>1?' ×'+c.n:'')+'</div><div class="right">'+costTxt(c)+'</div></div>';
+  h+='</div></div></details>';
+  el.innerHTML=h;
+}
+
+function renderLab(){
+  const el=document.getElementById("v-lab");const lp=labPlan(V);const now=Date.now();
+  let h='<div><h2>Research order</h2><p class="sub" style="margin-bottom:8px">Max the farming army first, then everything else. Lab '+lp.lab+'/'+lp.labCap+'. Change your army on the Update tab.</p>';
+  if(lp.cur)h+='<div class="alerts" style="margin-bottom:8px"><div class="alert info"><span class="dot"></span><div><b>Researching '+esc(lp.cur.name)+' '+lp.cur.from+' → '+(lp.cur.from+1)+'</b>, done in '+dur((lp.cur.finish-now)/1000)+' ('+when(lp.cur.finish)+').</div></div></div>';
+  const rowH=r=>{const st={go:'<span class="chip t2">Next</span>',busy:'<span class="chip busy">Researching</span>',block:'<span class="chip block">Lab '+r.req+'</span>',max:'<span class="chip done">Max</span>',locked:'<span class="chip">Locked</span>'}[r.state];
+    const right=r.state==="max"?r.lvl+"/"+r.cap:r.state==="locked"?"":r.lvl+" → "+(r.lvl+1)+" of "+r.cap+'<br><span class="'+resCls(r.res)+'">'+num(r.cost)+'</span> · '+dur(r.time);
+    return '<div class="row'+(r.state==="max"?" dim":"")+'"><div class="name">'+st+esc(r.name)+'</div><div class="right">'+right+'</div>'+(r.note?'<div class="why">'+esc(r.note)+'</div>':'')+'</div>'};
+  h+='<h3>Your farming army</h3><div class="list">'+lp.rows.map(rowH).join("")+'</div></div>';
+  h+='<div><h3>Everything else, least upgraded first</h3><div class="list">'+(lp.rest.length?lp.rest.map(rowH).join(""):'<div class="row"><div class="name">All maxed for TH'+V.th+'</div></div>')+'</div></div>';
+  if(lp.locked.length)h+='<div><h3>Not unlocked yet</h3><div class="list">'+lp.locked.map(x=>'<div class="row dim"><div class="name">'+esc(x.name)+'</div><div class="right">needs '+esc(x.need)+' (yours: '+x.have+')</div></div>').join("")+'</div></div>';
+  // pets
+  h+='<div><h2>Pets</h2>';
+  if(V.th<14)h+='<p class="sub">The Pet House unlocks at TH14. When it does, the guide says to prioritize it. Upgrade order once unlocked: Frosty, Phoenix and Sneezy first, then Angry Jelly, Electro Owl, Unicorn and Spirit Fox.</p>';
+  else{const ph=bLvl(V,ID.PET);h+='<p class="sub" style="margin-bottom:8px">Pet House '+ph+'/'+bCap(ID.PET,V.th)+'. Tiers from the guide.</p><div class="list">';
+    const byName={};for(const id in GD.P)byName[GD.P[id].n]=+id;
+    for(const [t,names] of PET_TIERS)for(const nm of names){const id=byName[nm];if(!id)continue;const p=V.pets[id];const capT=pCap(id,V.th),capNow=pCap(id,V.th,ph);
+      const unlockAt=GD.P[id].L[0][1];
+      let right,stc;
+      if(!p){right=unlockAt<=ph?"Unlocked: start it":"Pet House "+unlockAt;stc=unlockAt<=ph?'<span class="chip t2">'+t+'</span>':'<span class="chip">'+t+'</span>'}
+      else{right=p.lvl+"/"+capT;stc=p.timer?'<span class="chip busy">'+t+'</span>':p.lvl>=capT?'<span class="chip done">'+t+'</span>':p.lvl>=capNow?'<span class="chip block">'+t+'</span>':'<span class="chip t2">'+t+'</span>'}
+      h+='<div class="row"><div class="name">'+stc+esc(nm)+'</div><div class="right">'+right+'</div></div>';}
+    h+='</div>';}
+  h+='</div>';
+  el.innerHTML=h;
+}
+
+function renderHeroes(){
+  const el=document.getElementById("v-heroes");const hh=bLvl(V,ID.HH),bs=bLvl(V,ID.BS);const now=Date.now();
+  let h='<div><h2>Heroes</h2><p class="sub" style="margin-bottom:8px">Hero Hall '+hh+'/'+bCap(ID.HH,V.th)+'. One hero upgrading all the time (the Archer Queen), and push one hero to 8-day upgrades first.</p><div class="list">';
+  for(const id of HERO_ORDER){const x=V.heroes[id];const def=GD.H[id];const capT=hCap(id,V.th),capNow=hCap(id,V.th,hh);
+    if(!x){h+='<div class="trow"><div class="name"><b>'+esc(def.n)+'</b> <span class="muted">not recruited</span></div><div class="lv">Hero Hall '+def.L[0][1]+'</div></div>';continue}
+    const n=rNext(def,x.lvl);const pct=Math.min(100,x.lvl/capT*100);
+    let note=x.timer?"Upgrading, done "+when(V.ts+x.timer*1000):x.lvl>=capT?"Max for TH"+V.th:x.lvl>=capNow?"Waiting on Hero Hall "+def.L[x.lvl][1]:"Next: "+num(n.cost)+(def.r==="Elixir"?" elixir":" DE")+" · "+dur(n.time)+(n.time>=8*DAY?" (8-day range)":"");
+    h+='<div class="trow"><div><b>'+esc(def.n)+'</b> <span class="muted">· '+esc(note)+'</span></div><div class="lv">'+x.lvl+' / '+capT+'</div><div class="bar'+(pct>=100?" full":"")+'"><i style="width:'+pct+'%"></i></div></div>';}
+  h+='</div></div>';
+  // equipment
+  h+='<div><h2>Equipment</h2><p class="sub" style="margin-bottom:8px">Blacksmith '+bs+'/'+bCap(ID.BS,V.th)+'. First max one piece per hero (Archer Queen first), then a second piece for the Queen, Warden and Champion before the Prince and King. Fund one epic at a time.</p>';
+  const unknown=Object.keys(V.equip).filter(id=>!GD.E[id]);
+  for(const hid of HERO_ORDER){const hn=GD.H[hid].n;const pieces=Object.keys(V.equip).filter(id=>GD.E[id]&&GD.E[id].h===hn).map(id=>({id:+id,lvl:V.equip[id],d:GD.E[id]}));
+    if(!pieces.length)continue;pieces.sort((a,b)=>b.lvl/eCap(b.id,V.th)-a.lvl/eCap(a.id,V.th)||b.lvl-a.lvl);
+    h+='<h3 style="margin-top:10px">'+esc(hn)+'</h3><div class="list">';
+    pieces.forEach((p,i)=>{const capT=eCap(p.id,V.th),capNow=eCap(p.id,V.th,bs);const pct=Math.min(100,p.lvl/capT*100);
+      const tag=i===0?'<span class="chip t2">Main</span>':i===1&&[HERO.AQ,HERO.GW,HERO.RC].includes(hid)?'<span class="chip">Second</span>':"";
+      const pick=["Action Figure","Meteor Staff"].includes(p.d.n)?' <span class="muted">· guide pick</span>':"";
+      h+='<div class="eq"><div>'+tag+'<b>'+esc(p.d.n)+'</b> <span class="muted">'+p.d.q+'</span>'+pick+'</div><div class="lv muted">'+p.lvl+' / '+capT+(capNow<capT?' <span title="Blacksmith limit">(BS '+capNow+')</span>':'')+'</div><div class="bar'+(pct>=100?" full":"")+'"><i style="width:'+pct+'%"></i></div></div>';});
+    h+='</div>';}
+  if(unknown.length)h+='<p class="sub" style="margin-top:8px">'+unknown.length+' newer pieces in your export aren\'t in the game data this page uses, so they\'re not shown.</p>';
+  h+='</div>';
+  el.innerHTML=h;
+}
+
+function renderTracker(){
+  const el=document.getElementById("v-tracker");const th=V.th;
+  const sections=[];
+  const bSec=(title,ids)=>{const rows=[];let a=0,b=0;
+    for(const id of ids){const g=V.b[id]||V.traps[id];if(!g)continue;const cap=bCap(id,th);if(!cap)continue;const n=count(g);
+      const lv={};g.forEach(x=>lv[x.lvl]=(lv[x.lvl]||0)+x.n);const sum=g.reduce((s,x)=>s+Math.min(x.lvl,cap)*x.n,0);a+=sum;b+=cap*n;
+      const up=g.filter(x=>x.timer).length;
+      rows.push({name:(GD.B[id]||GD.T[id]).n,n,cap,pct:sum/(cap*n),inst:Object.keys(lv).sort((x,y)=>y-x).map(l=>l+(lv[l]>1?" ×"+lv[l]:"")).join(", ")+(up?" · "+up+" upgrading":"")});}
+    sections.push({title,rows,pct:b?a/b:1});};
+  const typeIds=t=>Object.keys(GD.B).filter(id=>GD.B[id].t===t&&+id!==ID.TH&&+id!==ID.WALL).map(Number);
+  bSec("Army",typeIds("Army"));
+  // heroes
+  {const rows=[];let a=0,b=0;for(const id of HERO_ORDER){const x=V.heroes[id];const cap=hCap(id,th);if(!cap)continue;const l=x?x.lvl:0;a+=Math.min(l,cap);b+=cap;rows.push({name:GD.H[id].n,n:1,cap,pct:l/cap,inst:x?String(l)+(x.timer?" · upgrading":""):"not recruited"})}sections.push({title:"Heroes",rows,pct:a/b})}
+  // lab
+  {const rows=[];let a=0,b=0;for(const id in V.units){const cap=uCap(+id,th);if(!cap)continue;const l=V.units[id].lvl;a+=Math.min(l,cap);b+=cap;rows.push({name:uDef(id).n,n:1,cap,pct:l/cap,inst:String(l)+(V.units[id].timer?" · researching":"")})}
+   rows.sort((x,y)=>x.pct-y.pct);sections.push({title:"Troops, spells & sieges",rows,pct:b?a/b:1})}
+  // equipment
+  {const rows=[];let a=0,b=0;for(const id in V.equip){if(!GD.E[id])continue;const cap=eCap(+id,th);if(!cap)continue;const l=V.equip[id];a+=Math.min(l,cap);b+=cap;rows.push({name:GD.E[id].n,n:1,cap,pct:l/cap,inst:String(l)})}
+   rows.sort((x,y)=>y.pct-x.pct);sections.push({title:"Equipment",rows,pct:b?a/b:1})}
+  bSec("Resources",typeIds("Resource"));
+  bSec("Defenses",typeIds("Defense").filter(id=>id!==ID.CRAFT));
+  bSec("Traps",Object.keys(GD.T).map(Number));
+  bSec("Walls",[ID.WALL]);
+  let h='<div><h2>TH'+th+' progress</h2><p class="sub" style="margin-bottom:8px">Share of levels done against TH'+th+' max levels.</p><div class="summary">'+sections.map(s=>'<div class="sum"><span>'+esc(s.title.split(",")[0])+'</span><b>'+Math.round(s.pct*100)+'%</b><div class="bar'+(s.pct>=1?" full":"")+'"><i style="width:'+s.pct*100+'%"></i></div></div>').join("")+'</div></div>';
+  for(const s of sections){
+    h+='<details'+(s.title==="Army"?" open":"")+'><summary>'+esc(s.title)+' · '+Math.round(s.pct*100)+'%</summary><div class="inner">';
+    for(const r of s.rows){const full=r.pct>=1;h+='<div class="trow"><div><b>'+esc(r.name)+'</b>'+(r.n>1?' <span class="muted">×'+r.n+'</span>':'')+'</div><div class="lv">max '+r.cap+'</div><div class="inst">'+esc(r.inst)+'</div><div class="bar'+(full?" full":"")+'"><i style="width:'+Math.min(100,r.pct*100)+'%"></i></div></div>'}
+    h+='</div></details>';}
+  el.innerHTML=h;
+}
+
+function renderGuide(){
+  const th=V.th;const el=document.getElementById("v-guide");
+  const ms={13:"TH13 to TH15: pass through quickly.",14:"TH13 to TH15: pass through quickly. The Pet House is new at TH14: prioritize it.",15:"TH13 to TH15: pass through quickly.",16:"TH16: get merged Cannons and Archer Towers, and max the Eagle Artillery before TH17.",17:"TH17: put one builder on the Giga Artillery before going to TH18.",18:"TH18 (max): unlock every offensive capability, then heroes. 3 builders on heroes (the 8-day hero, Grand Warden, Royal Champion), 2 on offense, 1 placing new buildings."}[th]||"TH2 to TH12: race to TH11. Upgrade Army Camps and the Clan Castle, then place new buildings.";
+  el.innerHTML='<div class="guide"><h2>The Tee Rush</h2><p class="sub">From CallMeTee\'s Strategic Rush Bible v1.6. The planner ranks your upgrades with these rules.</p>'+
+  '<div class="here"><b>You are at TH'+th+'.</b> '+esc(ms)+'</div>'+
+  '<h3>Builder order</h3><ol><li>One builder on the Archer Queen all the time.</li><li>Army Camps, Clan Castle, Hero Hall.</li><li>New buildings.</li><li>Upgrade the Town Hall as soon as 2 and 3 are done.</li></ol>'+
+  '<p>Gap fillers in the meantime: Blacksmith, Lab, Barracks, Spell Factories, Workshop, Pet House (TH14+). Then a second hero, then storages and collectors.</p>'+
+  '<h3>Upgrade the Town Hall right away if</h3><ul><li>you can\'t spend or store more ore,</li><li>any hero is maxed,</li><li>walls or the Lab are maxed,</li><li>a builder would sit idle.</li></ul>'+
+  '<h3>Lab</h3><ul><li>Max your farming army first, then donation troops, then your war army.</li><li>Upgrade the Lab only when it unlocks a level you need. If it blocks you, move it up.</li></ul>'+
+  '<h3>Heroes and equipment</h3><ul><li>Get one hero into the 8-day upgrade range first. Then a lower hero, since gains per level drop off.</li><li>Max one equipment piece per hero, then a second for the Queen, Warden and Champion. One epic at a time. Guide picks: Action Figure, Meteor Staff.</li><li>After TH18, hero order: Queen = Warden, then Prince = Dragon Duke = Champion, then King.</li></ul>'+
+  '<h3>Defenses and walls</h3><ul><li>Upgrade only the defenses a Town Hall upgrade needs.</li><li>Storages and collectors beat optional defenses.</li><li>Walls only with leftover loot. Never leave a builder idle for walls.</li></ul>'+
+  '<h3>Magic items</h3><ul><li>Hammers and Books go on the longest upgrades, heroes first. Save CWL medals for them.</li><li>Don\'t buy Hero Hammers early. Use a Book of Building on the Town Hall only when a new max TH comes out.</li></ul>'+
+  '<h3>Pets (TH14+)</h3><ul><li>P1: Frosty, Phoenix, Sneezy. P2: Angry Jelly, Electro Owl, Unicorn, Spirit Fox. P3: Yak, Poison Lizard, Diggy. Last: L.A.S.S.I.</li></ul></div>';
+}
+
+function renderImport(){
+  const el=document.getElementById("v-import");
+  const troopIds=Object.keys(V.units).map(Number).filter(id=>GD.U[id]&&GD.U[id].pb!=="Workshop");
+  const spellIds=Object.keys(V.units).map(Number).filter(id=>GD.SP[id]);
+  const pick=(ids,key)=>'<div class="picks">'+ids.map(id=>'<button class="pick" data-k="'+key+'" data-id="'+id+'" aria-pressed="'+SET[key].includes(id)+'">'+esc(uDef(id).n)+'</button>').join("")+'</div>';
+  el.innerHTML='<div><h2>Update your village</h2><p class="sub" style="margin-bottom:8px">In Clash: Settings → More Settings → Data Export → Copy. Paste it here. It\'s saved in this browser only.</p>'+
+  '<textarea id="paste" placeholder=\'{"tag":"#...","timestamp":...,"buildings":[...]}\'></textarea>'+
+  '<div class="btns" style="margin-top:8px"><button class="btn primary" id="loadBtn">Load export</button><button class="btn" id="resetBtn">Use the 8 Oct export</button></div><p class="msg" id="msg" role="status" style="margin-top:6px"></p></div>'+
+  '<div><h2>Farming army</h2><p class="sub" style="margin-bottom:8px">These go to the top of the Lab list, in the order you pick them. Sneaky Goblins upgrade through the Goblin.</p><h3>Troops</h3>'+pick(troopIds,"farm")+'<h3 style="margin-top:10px">Spells</h3>'+pick(spellIds,"spells")+'</div>'+
+  '<div><h2>Builders</h2><div class="field"><label for="bcount">Number of builders</label><input id="bcount" type="number" min="1" max="7" value="'+(SET.builders||builderCount(V))+'"><span class="sub">Read from your export: '+builderCount(V)+'</span></div></div>';
+  const msg=(t,ok)=>{const m=document.getElementById("msg");m.textContent=t;m.className="msg "+(ok?"ok":"err")};
+  document.getElementById("loadBtn").onclick=()=>{const t=document.getElementById("paste").value.trim();
+    try{const j=JSON.parse(t);const v=parseVillage(j);store.set("village",j);V=v;renderAll();msg("Loaded TH"+v.th+" "+v.tag+". The plan is updated.",true)}
+    catch(e){msg(e instanceof SyntaxError?"That text isn't valid JSON. Copy the export again and paste the whole thing.":e.message,false)}};
+  document.getElementById("resetBtn").onclick=()=>{store.set("village",null);V=parseVillage(SAMPLE);renderAll();msg("Back to the 8 Oct export.",true)};
+  el.querySelectorAll(".pick").forEach(b=>b.onclick=()=>{const k=b.dataset.k,id=+b.dataset.id;const a=SET[k];const i=a.indexOf(id);if(i>=0)a.splice(i,1);else a.push(id);store.set("settings",SET);renderAll(true)});
+  document.getElementById("bcount").onchange=e=>{const n=+e.target.value;SET.builders=n>0&&n!==builderCount(V)?n:0;store.set("settings",SET);renderAll(true)};
+}
+
+function renderAll(keepImport){headerMeta();renderPlan();renderLab();renderHeroes();renderTracker();renderGuide();if(!keepImport)renderImport();else{
+  // refresh pick states without wiping the paste box
+  document.querySelectorAll(".pick").forEach(b=>b.setAttribute("aria-pressed",SET[b.dataset.k].includes(+b.dataset.id)))}}
+
+// tabs
+function show(v){document.querySelectorAll("#tabs button").forEach(b=>b.setAttribute("aria-selected",b.dataset.v===v));
+  document.querySelectorAll("section.view").forEach(s=>s.hidden=s.id!=="v-"+v);store.set("tab",v)}
+document.getElementById("tabs").onclick=e=>{const b=e.target.closest("button");if(b)show(b.dataset.v)};
+
+load();renderAll();
+const initTab=(location.hash||"").slice(1);show(["plan","lab","heroes","tracker","guide","import"].includes(initTab)?initTab:store.get("tab","plan"));
+setInterval(()=>{headerMeta();renderPlan()},60000);
+</script>
