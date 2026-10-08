@@ -142,7 +142,7 @@ textarea{width:100%;min-height:150px;font:12px/1.4 ui-monospace,SFMono-Regular,M
 .tl-bar span{color:var(--muted);overflow:hidden;text-overflow:ellipsis;display:block}
 .tl-bar.k-hero{background:var(--gold-soft);border-color:var(--gold)}
 .tl-bar.k-gate{background:var(--warn-soft);border-color:var(--warn)}
-.tl-bar.k-th{background:var(--gold);color:var(--surface)} .tl-bar.k-th span{color:var(--surface)}
+.tl-bar.k-th{background:var(--gold);color:var(--surface)} .tl-bar.k-th span,.tl-bar.k-th em{color:var(--surface)!important}
 .tl-bar.k-off{background:var(--sunk);border-color:var(--elixir)}
 .tl-bar.k-econ{background:var(--ok-soft);border-color:var(--ok)}
 .tl-bar.k-def{background:var(--sunk);border-color:var(--line)}
@@ -249,10 +249,43 @@ let SET=Object.assign({},DEFAULT_SET,store.get("settings",{}));
 // ---------- state for planning ----------
 // Expanded per-instance state so the planner can simulate builders finishing.
 function makeState(v){
-  const st={th:v.th,thBusy:!!v.thTimer,b:{},h:{}};
-  for(const id in v.b){if(+id===ID.WALL)continue;st.b[id]=[];for(const g of v.b[id])for(let k=0;k<g.n;k++)st.b[id].push({lvl:g.lvl,busy:!!g.timer})}
-  for(const id in v.heroes)st.h[id]={lvl:v.heroes[id].lvl,busy:!!v.heroes[id].timer};
+  // t = the moment being planned; until = when a busy builder frees up.
+  const st={t:Date.now(),total:SET.builders||builderCount(v),th:v.th,thBusy:!!v.thTimer,thUntil:v.ts+v.thTimer*1000,b:{},h:{},other:[]};
+  for(const id in v.b){if(+id===ID.WALL)continue;st.b[id]=[];for(const g of v.b[id])for(let k=0;k<g.n;k++)st.b[id].push({lvl:g.lvl,busy:!!g.timer,until:v.ts+g.timer*1000})}
+  for(const id in v.traps)for(const g of v.traps[id])if(g.timer)st.other.push(v.ts+g.timer*1000);
+  for(const id in v.heroes)st.h[id]={lvl:v.heroes[id].lvl,busy:!!v.heroes[id].timer,until:v.ts+v.heroes[id].timer*1000};
   return st;
+}
+
+// dlimms' 5D plan: start the Town Hall as soon as the rest of the checklist can still be
+// finished by the other builders before the Town Hall lands, so everything ends together.
+function thFits(st,v){
+  const t=st.t;const n=bNext(ID.TH,st.th);if(!n)return false;const deadline=t+n.time*1000;
+  const work=[],gateFree=[];let mustEnd=t;
+  for(const id of GATE){const cap=bCap(id,st.th);const L=GD.B[id].L;
+    for(const x of st.b[id]||[]){let rest=0;for(let l=x.lvl+(x.busy?1:0);l<cap;l++)rest+=L[l][1]*1000;
+      if(x.busy&&x.lvl<cap){mustEnd=Math.max(mustEnd,x.until+rest);gateFree.push(x.until+rest)}else if(rest)work.push(rest);}}
+  const req=requiredCounts(st.th);
+  for(const id in req){if([ID.WALL,ID.HUT,ID.BOB,ID.CRAFT].includes(+id)||!GD.B[id])continue;
+    if(st.th>=16&&[ID.CANNON,ID.AT,ID.WT].includes(+id))continue;
+    const have=(st.b[id]||[]).length;for(let k=have;k<req[id];k++)work.push(Math.max(60,GD.B[id].L[0][1])*1000);
+    for(const x of st.b[id]||[])if(x.lvl===0&&x.busy){mustEnd=Math.max(mustEnd,x.until);gateFree.push(x.until)}}
+  if(mustEnd>deadline)return false;
+  if(!work.length)return true;
+  // Builders left for that work: everyone except the Town Hall builder and the hero builder.
+  const main=mainHero(st,v);const avail=[];
+  for(const id in st.b)for(const x of st.b[id])if(x.busy&&!GATE.includes(+id)&&x.lvl>0)avail.push(x.until);
+  for(const id in st.h)if(st.h[id].busy&&+id!==main)avail.push(st.h[id].until);
+  for(const u of st.other)if(u>t)avail.push(u);
+  const busyCount=Object.values(st.b).flat().filter(x=>x.busy).length+Object.values(st.h).filter(h=>h.busy).length+st.other.filter(u=>u>t).length+(st.thBusy?1:0);
+  let free=st.total-busyCount-1;if(main&&!st.h[main].busy)free--;
+  for(let k=0;k<free;k++)avail.push(t);
+  // gate jobs already running free their builder for the next gate job
+  avail.push(...gateFree);
+  if(!avail.length)return false;
+  work.sort((a,b)=>b-a);avail.sort((a,b)=>a-b);
+  let end=t;for(const w of work){avail.sort((a,b)=>a-b);const s0=Math.max(t,avail.shift());end=Math.max(end,s0+w);avail.push(s0+w)}
+  return end<=deadline;
 }
 const sLvl=(st,id)=>st.b[id]&&st.b[id].length?Math.max(...st.b[id].map(x=>x.lvl)):0;
 
@@ -325,19 +358,20 @@ function candidates(st,v,labBlocking){
   for(const it of gate)if(it.newb&&it.state==="todo"&&it.left>0){const n=bNext(it.id,0);
     add({key:"new"+it.id,kind:"new",id:it.id,name:GD.B[it.id].n,from:0,to:1,n:it.left,time:n?n.time:0,cost:n?n.cost:0,res:GD.B[it.id].r,tier:2,ord:4,blocked:"",why:"New building for this Town Hall"});}
   // Town Hall
-  const gateOpen=gate.some(x=>x.state!=="ok");
+  const gateOpen=!st.thBusy&&th<GD.B[ID.TH].L.length&&!thFits(st,v);
   const thCap=GD.B[ID.TH].L.length;
   if(!st.thBusy&&th<thCap){const n=bNext(ID.TH,th);
     add({key:"th",kind:"th",id:ID.TH,name:"Town Hall",from:th,to:th+1,time:n.time,cost:n.cost,res:"Gold",tier:gateOpen?3.5:1.5,ord:0,
-      blocked:gateOpen?"Finish the TH"+th+" checklist first":"",why:gateOpen?"Tee Rush: upgrade as soon as camps, Clan Castle, Hero Hall and new buildings are done":"Checklist done: rush to TH"+(th+1)});}
+      blocked:gateOpen?"Not yet: the rest of the TH"+th+" checklist wouldn't finish before the Town Hall does":"",why:gateOpen?"":"The rest of the checklist still finishes before the Town Hall does, so start it now"});}
   return out.sort((a,b)=>(a.blocked?1:0)-(b.blocked?1:0)||a.tier-b.tier||a.ord-b.ord||b.time-a.time);
 }
 
 function applyStart(st,c){
-  if(c.kind==="h")st.h[c.id].busy=true;
-  else if(c.kind==="th")st.thBusy=true;
-  else if(c.kind==="new"){(st.b[c.id]||(st.b[c.id]=[])).push({lvl:0,busy:true})}
-  else{const x=st.b[c.id].find(x=>!x.busy&&x.lvl===c.from);if(x)x.busy=true}
+  const until=st.t+Math.max(60,c.time)*1000;
+  if(c.kind==="h"){st.h[c.id].busy=true;st.h[c.id].until=until}
+  else if(c.kind==="th"){st.thBusy=true;st.thUntil=until}
+  else if(c.kind==="new"){(st.b[c.id]||(st.b[c.id]=[])).push({lvl:0,busy:true,until})}
+  else{const x=st.b[c.id].find(x=>!x.busy&&x.lvl===c.from);if(x){x.busy=true;x.until=until}}
 }
 function applyFinish(st,j){
   if(j.kind==="h"){st.h[j.id].lvl=j.from+1;st.h[j.id].busy=false;return}
@@ -350,8 +384,9 @@ function simulate(v,labBlocking){
   const st=makeState(v);const jobs=busyJobs(v);
   const total=SET.builders||builderCount(v);
   const free=Math.max(0,total-jobs.length);const slots=[];
+  st.t=Date.now();
   for(let k=0;k<free;k++){const c=candidates(st,v,labBlocking).find(c=>!c.blocked&&c.tier<6);slots.push({job:null,next:c||null,at:Date.now()});if(c)applyStart(st,c)}
-  for(const j of jobs){applyFinish(st,j);
+  for(const j of jobs){applyFinish(st,j);st.t=j.finish;
     let c=null;
     if(j.kind==="h"&&mainHero(st,v)===j.id&&!st.h[j.id].busy){c=candidates(st,v,labBlocking).find(x=>x.kind==="h"&&x.id===j.id&&!x.blocked)}
     if(!c)c=candidates(st,v,labBlocking).find(c=>!c.blocked&&c.tier<6);
@@ -408,6 +443,7 @@ function simulateTimeline(v,labBlocking,days){
   let guard=0;
   while(q.length&&guard++<600){
     q.sort((a,b)=>a.at-b.at);const it=q.shift();
+    st.t=it.at;
     if(it.job){applyFinish(st,it.job);events.push({at:it.at,id:it.job.id,kind:it.job.kind,lvl:it.job.from+1})}
     if(it.at>end)continue;
     const c=candidates(st,v,labBlocking).find(c=>!c.blocked&&c.tier<6);
@@ -519,7 +555,7 @@ function renderPlan(){
   if(capped.length&&V.th<GD.B[ID.TH].L.length)alerts.push(["ok","<b>"+capped.map(id=>esc(GD.H[id].n)).join(", ")+" maxed for TH"+V.th+".</b> Per the guide, a maxed hero means it's time to upgrade the Town Hall."]);
   if(lp.blocking){const labUp=(V.b[ID.LAB]||[]).some(g=>g.timer);alerts.push(labUp?["info","<b>"+esc(lp.blocking)+".</b> The Lab upgrade already running unlocks it."]:["warn","<b>Lab is the bottleneck:</b> "+esc(lp.blocking)+". The Lab moved up your builder list."]);}
   const thCand=cands.find(c=>c.kind==="th");
-  if(thCand&&!thCand.blocked)alerts.unshift(["ok","<b>Ready for TH"+(V.th+1)+".</b> Your TH"+V.th+" checklist is done, so the next free builder goes on the Town Hall."]);
+  if(thCand&&!thCand.blocked)alerts.unshift(["ok","<b>Start TH"+(V.th+1)+" with your next free builder.</b> The rest of the TH"+V.th+" checklist still finishes before the Town Hall does."]);
 
   let h="";
   if(alerts.length)h+='<div class="alerts">'+alerts.map(([k,t])=>'<div class="alert '+k+'"><span class="dot"></span><div>'+t+'</div></div>').join("")+'</div>';
@@ -644,7 +680,7 @@ function renderGuide(){
   const ms={13:"TH13 to TH15: pass through quickly.",14:"TH13 to TH15: pass through quickly. The Pet House is new at TH14: prioritize it.",15:"TH13 to TH15: pass through quickly.",16:"TH16: get merged Cannons and Archer Towers, and max the Eagle Artillery before TH17.",17:"TH17: put one builder on the Giga Artillery before going to TH18.",18:"TH18 (max): unlock every offensive capability, then heroes. 3 builders on heroes (the 8-day hero, Grand Warden, Royal Champion), 2 on offense, 1 placing new buildings."}[th]||"TH2 to TH12: race to TH11. Upgrade Army Camps and the Clan Castle, then place new buildings.";
   el.innerHTML='<div class="guide"><h2>The Tee Rush</h2><p class="sub">From CallMeTee\'s Strategic Rush Bible v1.6. The planner ranks your upgrades with these rules.</p>'+
   '<div class="here"><b>You are at TH'+th+'.</b> '+esc(ms)+'</div>'+
-  '<h3>Builder order</h3><ol><li>One builder on the Archer Queen all the time.</li><li>Army Camps, Clan Castle, Hero Hall.</li><li>New buildings.</li><li>Upgrade the Town Hall as soon as 2 and 3 are done.</li></ol>'+
+  '<h3>Builder order</h3><ol><li>One builder on the Archer Queen all the time.</li><li>Army Camps, Clan Castle, Hero Hall.</li><li>New buildings.</li><li>Upgrade the Town Hall as soon as 2 and 3 are done, or will be done by the time it lands. Start it early enough that every builder finishes together (dlimms\' 5D plan).</li></ol>'+
   '<p>Gap fillers in the meantime: Blacksmith, Lab, Barracks, Spell Factories, Workshop, Pet House (TH14+). Then a second hero, then storages and collectors.</p>'+
   '<h3>Upgrade the Town Hall right away if</h3><ul><li>you can\'t spend or store more ore,</li><li>any hero is maxed,</li><li>walls or the Lab are maxed,</li><li>a builder would sit idle.</li></ul>'+
   '<h3>Lab</h3><ul><li>Max your farming army first, then donation troops, then your war army.</li><li>Upgrade the Lab only when it unlocks a level you need. If it blocks you, move it up.</li></ul>'+
