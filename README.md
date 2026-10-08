@@ -33,7 +33,7 @@ Game data comes from [coc.py](https://github.com/mathsman5133/coc.py)'s `static_
 
 Every push to `main` builds the APK in GitHub Actions and puts it on the [`android-latest` release](../../releases/tag/android-latest). To install, open that release on your phone, download `rush-planner.apk` and allow installs from your browser when Android asks. Later builds install over the old one and keep your data, because they are all signed with the debug key in `android/debug.keystore`.
 
-The app also has an **Upgrade timers** home-screen widget (long-press the home screen, then Widgets, then Rush Planner). It lists the builder, hero, lab and pet timers from the last export you pasted, soonest first, and refreshes its countdowns about every 15 minutes. It only knows what your latest export says, so paste a fresh export after starting new upgrades.
+The app also has an **Upgrade timers** home-screen widget (long-press the home screen, then Widgets, then Rush Planner). It lists the builder, hero, lab and pet timers from the last export you pasted, soonest first, and refreshes its countdowns about every 15 minutes. The list scrolls when the widget is small. It only knows what your latest export says, so paste a fresh export after starting new upgrades.
 
 To build locally (needs JDK 17 and the Android SDK):
 
