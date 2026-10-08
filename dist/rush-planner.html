@@ -1,3 +1,11 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<style>body{margin:0}</style>
+</head>
+<body>
 <title>Rush Planner</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -23,6 +31,7 @@
   --ok:#55c27e; --ok-soft:#163222; --warn:#f0a542; --warn-soft:#3a2a12; --crit:#f07067; --crit-soft:#3a1a18;
   --bar:#2a3039; color-scheme:dark}
 *{box-sizing:border-box}
+[hidden]{display:none!important}
 body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.5;font-variant-numeric:tabular-nums}
 .wrap{max-width:760px;margin:0 auto;padding-inline:16px;padding-block:0 48px}
 header.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);padding-block:14px 0;border-bottom:1px solid var(--line)}
@@ -566,3 +575,6 @@ load();renderAll();
 const initTab=(location.hash||"").slice(1);show(["plan","lab","heroes","tracker","guide","import"].includes(initTab)?initTab:store.get("tab","plan"));
 setInterval(()=>{headerMeta();renderPlan()},60000);
 </script>
+
+</body>
+</html>

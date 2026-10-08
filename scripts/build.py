@@ -13,6 +13,13 @@ subprocess.run([sys.executable, "-I", str(ROOT / "scripts" / "gen_gamedata.py"),
 page = (ROOT / "src" / "template.html").read_text()
 sample = json.dumps(json.loads((ROOT / "src" / "sample-village.json").read_text()), separators=(",", ":"))
 page = page.replace("/*GAMEDATA*/", gamedata.read_text()).replace("/*SAMPLE*/", sample)
+# The template is also published as a claude.ai artifact, which supplies the document
+# skeleton; a standalone file needs its own (standards mode, UTF-8, mobile viewport).
+page = (
+    '<!doctype html>\n<html lang="en">\n<head>\n<meta charset="utf-8">\n'
+    '<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">\n'
+    '<style>body{margin:0}</style>\n</head>\n<body>\n' + page + '\n</body>\n</html>\n'
+)
 out = ROOT / "dist" / "rush-planner.html"
 out.write_text(page)
 print(f"wrote {out} ({len(page):,} bytes)")
