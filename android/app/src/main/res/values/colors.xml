@@ -3,4 +3,10 @@
     <color name="background">#ECEFF2</color>
     <color name="icon_background">#1B2129</color>
     <color name="icon_gold">#F1B532</color>
+    <!-- Widget, matching the page's light palette -->
+    <color name="widget_surface">#FFFFFF</color>
+    <color name="widget_ink">#1B2129</color>
+    <color name="widget_muted">#5B6672</color>
+    <color name="widget_gold">#B27A00</color>
+    <color name="widget_done">#2B7D46</color>
 </resources>

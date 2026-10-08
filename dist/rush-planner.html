@@ -736,7 +736,17 @@ function renderImport(){
   document.getElementById("bcount").onchange=e=>{const n=+e.target.value;SET.builders=n>0&&n!==builderCount(V)?n:0;store.set("settings",SET);renderAll(true)};
 }
 
-function renderAll(keepImport){headerMeta();renderPlan();renderTimeline();renderLab();renderHeroes();renderTracker();renderGuide();if(!keepImport)renderImport();else{
+// Android app only: hand the running timers to the home-screen widget.
+function syncWidget(){
+  if(!window.RushPlannerAndroid)return;
+  const jobs=busyJobs(V).map(j=>({kind:j.kind==="h"?"Hero":"Builder",name:j.name+" "+(j.from+1),finish:j.finish}));
+  for(const id in V.units){const u=V.units[id];if(u.timer)jobs.push({kind:"Lab",name:(uDef(id).n||"Research")+" "+(u.lvl+1),finish:V.ts+u.timer*1000})}
+  for(const id in V.pets){const p=V.pets[id];if(p.timer)jobs.push({kind:"Pet",name:((GD.P[id]||{}).n||"Pet")+" "+(p.lvl+1),finish:V.ts+p.timer*1000})}
+  jobs.sort((a,b)=>a.finish-b.finish);
+  try{RushPlannerAndroid.setTimers(JSON.stringify({saved:!!store.get("village",null),tag:V.tag,ts:V.ts,jobs}))}catch(e){}
+}
+
+function renderAll(keepImport){syncWidget();headerMeta();renderPlan();renderTimeline();renderLab();renderHeroes();renderTracker();renderGuide();if(!keepImport)renderImport();else{
   // refresh pick states without wiping the paste box
   document.querySelectorAll(".pick").forEach(b=>b.setAttribute("aria-pressed",SET[b.dataset.k].includes(+b.dataset.id)))}}
 
