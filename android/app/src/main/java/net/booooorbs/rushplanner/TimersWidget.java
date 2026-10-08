@@ -50,6 +50,7 @@ public class TimersWidget extends AppWidgetProvider {
     }
 
     // The system's own update period is 30 minutes at best; an inexact alarm keeps the countdowns fresher.
+    // The same broadcast backs the reload button.
     private static void scheduleRefresh(Context context) {
         alarms(context).setInexactRepeating(AlarmManager.ELAPSED_REALTIME,
                 SystemClock.elapsedRealtime() + REFRESH_MS, REFRESH_MS, refreshIntent(context));
@@ -82,12 +83,8 @@ public class TimersWidget extends AppWidgetProvider {
     static RemoteViews render(Context context) {
         RemoteViews views = new RemoteViews(context.getPackageName(), R.layout.widget_timers);
 
-        Intent open = new Intent(context, MainActivity.class);
-        views.setOnClickPendingIntent(R.id.root, PendingIntent.getActivity(context, 0, open,
-                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE));
-        // List rows fill this template in; templates must be mutable.
-        views.setPendingIntentTemplate(R.id.list, PendingIntent.getActivity(context, 1, open,
-                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_MUTABLE));
+        // The reload button recomputes the countdowns in place; nothing on the widget opens the app.
+        views.setOnClickPendingIntent(R.id.reload, refreshIntent(context));
         views.setRemoteAdapter(R.id.list, new Intent(context, TimersWidgetService.class));
         views.setEmptyView(R.id.list, R.id.message);
 

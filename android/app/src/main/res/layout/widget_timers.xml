@@ -28,6 +28,16 @@
             android:layout_height="wrap_content"
             android:textColor="@color/widget_muted"
             android:textSize="11sp" />
+
+        <ImageView
+            android:id="@+id/reload"
+            android:layout_width="36dp"
+            android:layout_height="36dp"
+            android:layout_marginStart="4dp"
+            android:background="@drawable/widget_button_bg"
+            android:contentDescription="@string/widget_reload"
+            android:padding="8dp"
+            android:src="@drawable/ic_reload" />
     </LinearLayout>
 
     <TextView
