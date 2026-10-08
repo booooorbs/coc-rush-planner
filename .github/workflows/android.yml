@@ -1,0 +1,54 @@
+name: Android APK
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Build the web app
+        run: python3 scripts/build.py
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Build the APK
+        working-directory: android
+        run: ./gradlew --no-daemon assembleDebug
+
+      - name: Name the APK
+        run: cp android/app/build/outputs/apk/debug/app-debug.apk rush-planner.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: rush-planner-apk
+          path: rush-planner.apk
+
+      # Keep one "android-latest" release whose APK is always the newest build of main.
+      - name: Publish the latest APK
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete android-latest --cleanup-tag --yes || true
+          gh release create android-latest rush-planner.apk \
+            --target "$GITHUB_SHA" --prerelease \
+            --title "Rush Planner for Android (latest)" \
+            --notes "Built from ${GITHUB_SHA::7}. Open this page on your phone, tap rush-planner.apk, then install it. New builds install over the old one and keep your saved export."
