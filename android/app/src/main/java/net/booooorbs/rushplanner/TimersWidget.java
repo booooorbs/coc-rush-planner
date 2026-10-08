@@ -8,18 +8,14 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.os.SystemClock;
-import android.text.format.DateUtils;
-import android.view.View;
 import android.widget.RemoteViews;
 
-import org.json.JSONArray;
 import org.json.JSONObject;
 
 /** Home-screen widget listing the running upgrade timers from the last export pasted in the app. */
 public class TimersWidget extends AppWidgetProvider {
     static final String PREFS = "widget";
     static final String KEY_TIMERS = "timers";
-    private static final int MAX_ROWS = 8;
     private static final long REFRESH_MS = 15 * 60 * 1000L;
 
     /** Called by the page (via MainActivity) whenever it loads or a new export is pasted. */
@@ -32,12 +28,14 @@ public class TimersWidget extends AppWidgetProvider {
         AppWidgetManager mgr = AppWidgetManager.getInstance(context);
         int[] ids = mgr.getAppWidgetIds(new ComponentName(context, TimersWidget.class));
         for (int id : ids) mgr.updateAppWidget(id, render(context));
+        // Rebuild the list so the countdowns are recomputed.
+        mgr.notifyAppWidgetViewDataChanged(ids, R.id.list);
     }
 
     @Override
     public void onUpdate(Context context, AppWidgetManager mgr, int[] ids) {
-        RemoteViews views = render(context);
-        for (int id : ids) mgr.updateAppWidget(id, views);
+        for (int id : ids) mgr.updateAppWidget(id, render(context));
+        mgr.notifyAppWidgetViewDataChanged(ids, R.id.list);
         scheduleRefresh(context);
     }
 
@@ -70,60 +68,43 @@ public class TimersWidget extends AppWidgetProvider {
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
     }
 
+    /** The last timers the page sent, or null before the first export is pasted. */
+    static JSONObject data(Context context) {
+        String raw = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(KEY_TIMERS, null);
+        try {
+            JSONObject data = raw == null ? null : new JSONObject(raw);
+            return data != null && data.optBoolean("saved") ? data : null;
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
     static RemoteViews render(Context context) {
-        String pkg = context.getPackageName();
-        RemoteViews views = new RemoteViews(pkg, R.layout.widget_timers);
-        views.removeAllViews(R.id.rows);
+        RemoteViews views = new RemoteViews(context.getPackageName(), R.layout.widget_timers);
 
         Intent open = new Intent(context, MainActivity.class);
         views.setOnClickPendingIntent(R.id.root, PendingIntent.getActivity(context, 0, open,
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE));
+        // List rows fill this template in; templates must be mutable.
+        views.setPendingIntentTemplate(R.id.list, PendingIntent.getActivity(context, 1, open,
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_MUTABLE));
+        views.setRemoteAdapter(R.id.list, new Intent(context, TimersWidgetService.class));
+        views.setEmptyView(R.id.list, R.id.message);
 
-        String raw = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(KEY_TIMERS, null);
-        long now = System.currentTimeMillis();
-        try {
-            JSONObject data = raw == null ? null : new JSONObject(raw);
-            if (data == null || !data.optBoolean("saved")) {
-                showMessage(views, context.getString(R.string.widget_no_data));
-                views.setTextViewText(R.id.updated, "");
-                return views;
-            }
-            long ts = data.optLong("ts");
-            views.setTextViewText(R.id.updated, context.getString(R.string.widget_updated, ago(now - ts)));
-
-            JSONArray jobs = data.optJSONArray("jobs");
-            int n = jobs == null ? 0 : Math.min(jobs.length(), MAX_ROWS);
-            if (n == 0) {
-                showMessage(views, context.getString(R.string.widget_idle));
-                return views;
-            }
-            views.setViewVisibility(R.id.message, View.GONE);
-            for (int k = 0; k < n; k++) {
-                JSONObject job = jobs.getJSONObject(k);
-                long finish = job.getLong("finish");
-                RemoteViews row = new RemoteViews(pkg, R.layout.widget_row);
-                row.setTextViewText(R.id.name, job.optString("name"));
-                row.setTextViewText(R.id.kind, job.optString("kind"));
-                if (finish <= now) {
-                    row.setTextViewText(R.id.left, context.getString(R.string.widget_done));
-                    row.setTextColor(R.id.left, context.getColor(R.color.widget_done));
-                    row.setTextViewText(R.id.at, "");
-                } else {
-                    row.setTextViewText(R.id.left, remaining(finish - now));
-                    row.setTextViewText(R.id.at, DateUtils.formatDateTime(context, finish,
-                            DateUtils.FORMAT_SHOW_WEEKDAY | DateUtils.FORMAT_ABBREV_WEEKDAY
-                                    | DateUtils.FORMAT_SHOW_TIME));
-                }
-                views.addView(R.id.rows, row);
-            }
-        } catch (Exception e) {
+        JSONObject data = data(context);
+        if (data == null) {
+            views.setTextViewText(R.id.updated, "");
             showMessage(views, context.getString(R.string.widget_no_data));
+            return views;
         }
+        long now = System.currentTimeMillis();
+        views.setTextViewText(R.id.updated, context.getString(R.string.widget_updated, ago(now - data.optLong("ts"))));
+        showMessage(views, context.getString(R.string.widget_idle));
         return views;
     }
 
+    // Shown by the list only while it is empty.
     private static void showMessage(RemoteViews views, String text) {
-        views.setViewVisibility(R.id.message, View.VISIBLE);
         views.setTextViewText(R.id.message, text);
     }
 

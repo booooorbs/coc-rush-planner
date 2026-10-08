@@ -39,10 +39,14 @@
         android:textColor="@color/widget_muted"
         android:textSize="13sp" />
 
-    <LinearLayout
-        android:id="@+id/rows"
+    <!-- Scrolls when the widget is sized smaller than the list. -->
+    <ListView
+        android:id="@+id/list"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:paddingTop="4dp" />
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:divider="@null"
+        android:dividerHeight="0dp"
+        android:paddingTop="4dp"
+        android:scrollbars="none" />
 </LinearLayout>
