@@ -2,10 +2,12 @@ package net.booooorbs.rushplanner;
 
 import android.app.Activity;
 import android.content.ActivityNotFoundException;
+import android.content.Context;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
 import android.view.Window;
+import android.webkit.JavascriptInterface;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebResourceResponse;
 import android.webkit.WebSettings;
@@ -51,6 +53,9 @@ public class MainActivity extends Activity {
         s.setAllowFileAccess(false);
         s.setAllowContentAccess(false);
 
+        // The page reports its running timers here for the home-screen widget.
+        web.addJavascriptInterface(new WidgetBridge(getApplicationContext()), "RushPlannerAndroid");
+
         WebViewAssetLoader loader = new WebViewAssetLoader.Builder()
                 .setDomain(HOST)
                 .addPathHandler("/assets/", new WebViewAssetLoader.AssetsPathHandler(this))
@@ -79,6 +84,20 @@ public class MainActivity extends Activity {
             web.restoreState(savedInstanceState);
         } else {
             web.loadUrl(START_URL);
+        }
+    }
+
+    /** Exposed to the page as window.RushPlannerAndroid. */
+    public static class WidgetBridge {
+        private final Context context;
+
+        WidgetBridge(Context context) {
+            this.context = context;
+        }
+
+        @JavascriptInterface
+        public void setTimers(String json) {
+            TimersWidget.save(context, json);
         }
     }
 

@@ -1,3 +1,10 @@
 <resources>
     <string name="app_name">Rush Planner</string>
+    <string name="widget_label">Upgrade timers</string>
+    <string name="widget_title">Upgrades</string>
+    <string name="widget_description">Your running builder, hero, lab and pet timers</string>
+    <string name="widget_updated">Export %1$s</string>
+    <string name="widget_no_data">Open Rush Planner and paste your export to see your timers here.</string>
+    <string name="widget_idle">Nothing is upgrading right now.</string>
+    <string name="widget_done">Done</string>
 </resources>
