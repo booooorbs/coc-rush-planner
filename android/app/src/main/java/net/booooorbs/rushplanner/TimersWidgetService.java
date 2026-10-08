@@ -59,8 +59,6 @@ public class TimersWidgetService extends RemoteViewsService {
                         DateUtils.FORMAT_SHOW_WEEKDAY | DateUtils.FORMAT_ABBREV_WEEKDAY
                                 | DateUtils.FORMAT_SHOW_TIME));
             }
-            // Tapping a row opens the app (the template is set on the list).
-            row.setOnClickFillInIntent(R.id.row, new Intent());
             return row;
         }
 

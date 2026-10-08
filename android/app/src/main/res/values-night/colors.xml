@@ -5,4 +5,5 @@
     <color name="widget_muted">#9AA5B1</color>
     <color name="widget_gold">#F1B532</color>
     <color name="widget_done">#55C27E</color>
+    <color name="widget_ripple">#33F1B532</color>
 </resources>

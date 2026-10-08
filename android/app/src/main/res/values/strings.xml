@@ -7,4 +7,5 @@
     <string name="widget_no_data">Open Rush Planner and paste your export to see your timers here.</string>
     <string name="widget_idle">Nothing is upgrading right now.</string>
     <string name="widget_done">Done</string>
+    <string name="widget_reload">Refresh timers</string>
 </resources>
