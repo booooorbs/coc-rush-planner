@@ -136,8 +136,16 @@ textarea{width:100%;min-height:150px;font:12px/1.4 ui-monospace,SFMono-Regular,M
 .tl-row{height:56px;position:relative;border-top:1px solid var(--line)}
 .tl-row:first-of-type{border-top:0}
 .tl-grid{position:absolute;top:34px;bottom:0;border-left:1px dashed var(--line);pointer-events:none}
+.tl-hr{position:absolute;top:17px;font-size:11px;color:var(--muted);padding-left:4px;white-space:nowrap}
+.tl-grid.hr{border-left-style:dotted;opacity:.6}
+.gantt{display:flex;flex-direction:column;gap:8px}
+.gz .seg button{min-width:40px;padding:7px 12px}
+.tl-scroll{cursor:grab;touch-action:pan-x pan-y;-webkit-overflow-scrolling:touch;overscroll-behavior-x:contain}
+/* keep a bar's name in view when the bar starts left of the visible area (clip, not hidden, so sticky works) */
+.tl-bar b,.tl-bar span{position:sticky;left:6px;max-width:max-content}
+.tl-scroll.grab{cursor:grabbing;user-select:none}
 .tl-now{position:absolute;top:0;bottom:0;width:2px;background:var(--crit);z-index:3;pointer-events:none}
-.tl-bar{position:absolute;top:6px;height:44px;border-radius:7px;padding:4px 8px;overflow:hidden;white-space:nowrap;font-size:12px;line-height:1.3;border:1px solid transparent;box-sizing:border-box;z-index:2}
+.tl-bar{position:absolute;top:6px;height:44px;border-radius:7px;padding:4px 8px;overflow:clip;white-space:nowrap;font-size:12px;line-height:1.3;border:1px solid transparent;box-sizing:border-box;z-index:2}
 .tl-bar b{display:block;font-size:12.5px;overflow:hidden;text-overflow:ellipsis}
 .tl-bar span{color:var(--muted);overflow:hidden;text-overflow:ellipsis;display:block}
 .tl-bar.k-hero{background:var(--gold-soft);border-color:var(--gold)}
@@ -536,38 +544,72 @@ function simulateLab(v,events,days){
   }
   return bars;
 }
-let TL_DAYS=store.get("tlDays",14);
 // Gantt chart shared by the Timeline and My Plan tabs. rows: [{label,bars:[{name,from,to,start,end,cost,res,k,running,newb,warn}]}]
-function ganttHTML(rows,days,first){
-  const pxDay={7:170,14:110,30:56}[days]||110;
+// Scrolls sideways (swipe, drag, shift+wheel) and zooms (buttons, pinch, ctrl+wheel); zoom is px per day, saved per chart.
+const PX_MIN=8,PX_MAX=2400;
+function mountGantt(host,rows,key){
+  const st={px:store.get("zoom:"+key,110),anchor:host._anchor};
   const now=Date.now();const d0=new Date(now);d0.setHours(0,0,0,0);const t0=d0.getTime();
-  const width=Math.round((days+1)*pxDay);const x=t=>(t-t0)/(DAY*1000)*pxDay;
-  let ax="",grid="";
-  for(let i=0;i<=days+1;i++){const d=new Date(t0+i*DAY*1000);const left=i*pxDay;
-    const wk=d.getDay()===1;const txt=(i===0||d.getDate()===1?d.toLocaleDateString(undefined,{month:"short"})+" ":"")+d.getDate()+(pxDay>=100?" "+d.toLocaleDateString(undefined,{weekday:"short"}):"");
-    ax+='<div class="tl-day'+(wk?" wk":"")+'" style="left:'+left+'px">'+esc(txt)+'</div>';grid+='<div class="tl-grid" style="left:'+left+'px"></div>';}
-  const bar=b=>{const l=Math.max(0,x(b.start)),r=Math.min(width,x(b.end));if(r<=0||l>=width||r-l<2)return "";
-    const lvl=b.newb?"new":b.from+" → "+b.to;
-    const cost=b.cost?' · <em class="'+resCls(b.res)+'" style="font-style:normal">'+num(b.cost)+'</em>':"";
-    const tip=b.name+" "+lvl+" · "+(b.running?"in progress, done ":"start "+when(b.start)+", done ")+when(b.end)+(b.warn?" · "+b.warn:"");
-    return '<div class="tl-bar k-'+b.k+(b.running?" now-running":"")+(b.warn?" warn":"")+'" style="left:'+l+'px;width:'+(r-l-2)+'px" title="'+esc(tip)+'"><b>'+esc(b.name)+' '+lvl+'</b><span>'+(b.running?"done in "+dur((b.end-now)/1000):dur((b.end-b.start)/1000))+cost+'</span></div>'};
-  let h='<div class="tl"><div class="tl-labels"><div>'+esc(first||new Date(now).toLocaleDateString(undefined,{month:"long"}))+'</div>'+rows.map(r=>'<div>'+esc(r.label)+'</div>').join("")+'</div>';
-  h+='<div class="tl-scroll"><div class="tl-canvas" style="width:'+width+'px"><div class="tl-axis">'+ax+'</div>'+grid+
-    rows.map(r=>'<div class="tl-row">'+r.bars.map(bar).join("")+'</div>').join("")+
-    '<div class="tl-now" style="left:'+x(now)+'px"></div></div></div></div>';
-  return h;
+  const lastEnd=Math.max(now,...rows.flatMap(r=>r.bars.map(b=>b.end)));
+  const days=Math.min(90,Math.max(7,Math.ceil((lastEnd-t0)/(DAY*1000))+1));
+  host.innerHTML='<div class="tl-tools gz"><div class="seg" role="group" aria-label="Zoom"><button data-z="out" aria-label="Zoom out">−</button><button data-z="now">Now</button><button data-z="in" aria-label="Zoom in">+</button></div>'+
+    '<div class="seg" role="group" aria-label="Show">'+[[1,"1 day"],[7,"1 week"],[14,"2 weeks"],[30,"1 month"]].map(([d,t])=>'<button data-fit="'+d+'">'+t+'</button>').join("")+'</div></div>'+
+    '<div class="tl"><div class="tl-labels"><div>'+esc(new Date(now).toLocaleDateString(undefined,{month:"long"}))+'</div>'+rows.map(r=>'<div>'+esc(r.label)+'</div>').join("")+'</div><div class="tl-scroll"><div class="tl-canvas"></div></div></div>';
+  const sc=host.querySelector(".tl-scroll"),cv=host.querySelector(".tl-canvas");
+  const draw=()=>{const px=st.px;const width=Math.round(days*px);const x=t=>(t-t0)/(DAY*1000)*px;
+    const step=px>=1600?1:px>=800?2:px>=400?3:px>=220?6:0;
+    let ax="",grid="";
+    for(let i=0;i<=days;i++){const d=new Date(t0+i*DAY*1000);const left=x(d.getTime());
+      const wk=d.getDay()===1;const txt=(i===0||d.getDate()===1?d.toLocaleDateString(undefined,{month:"short"})+" ":"")+d.getDate()+(px>=60?" "+d.toLocaleDateString(undefined,{weekday:"short"}):"");
+      ax+='<div class="tl-day'+(wk?" wk":"")+'" style="left:'+left+'px">'+esc(txt)+'</div>';grid+='<div class="tl-grid" style="left:'+left+'px"></div>';
+      if(step&&i<days)for(let hh=step;hh<24;hh+=step){const hl=x(t0+i*DAY*1000+hh*3600000);
+        ax+='<div class="tl-hr" style="left:'+hl+'px">'+new Date(t0+i*DAY*1000+hh*3600000).toLocaleTimeString(undefined,{hour:"numeric"})+'</div>';grid+='<div class="tl-grid hr" style="left:'+hl+'px"></div>';}}
+    const bar=b=>{const l=Math.max(0,x(b.start)),r=Math.min(width,x(b.end));if(r<=0||l>=width||r-l<2)return "";
+      const lvl=b.newb?"new":b.from+" → "+b.to;
+      const cost=b.cost?' · <em class="'+resCls(b.res)+'" style="font-style:normal">'+num(b.cost)+'</em>':"";
+      const tip=b.name+" "+lvl+" · "+(b.running?"in progress, done ":"start "+when(b.start)+", done ")+when(b.end)+(b.warn?" · "+b.warn:"");
+      return '<div class="tl-bar k-'+b.k+(b.running?" now-running":"")+(b.warn?" warn":"")+'" style="left:'+l+'px;width:'+(r-l-2)+'px" title="'+esc(tip)+'"><b>'+esc(b.name)+' '+lvl+'</b><span>'+(b.running?"done in "+dur((b.end-now)/1000):dur((b.end-b.start)/1000))+cost+'</span></div>'};
+    cv.style.width=width+"px";
+    cv.innerHTML='<div class="tl-axis">'+ax+'</div>'+grid+rows.map(r=>'<div class="tl-row">'+r.bars.map(bar).join("")+'</div>').join("")+'<div class="tl-now" style="left:'+x(now)+'px"></div>';};
+  const tAt=cx=>t0+(sc.scrollLeft+cx)/st.px*DAY*1000;
+  const keep=(t,cx)=>{sc.scrollLeft=(t-t0)/(DAY*1000)*st.px-cx};
+  // zoom around a point on screen (cx = px from the chart's left edge)
+  const zoom=(px,cx)=>{px=Math.max(PX_MIN,Math.min(PX_MAX,px));if(cx==null)cx=sc.clientWidth/2;const t=tAt(cx);st.px=px;draw();keep(t,cx);host._anchor=tAt(0);store.set("zoom:"+key,px)};
+  const toNow=()=>keep(now,Math.min(sc.clientWidth*.15,80));
+  host._refresh=()=>{if(!sc.clientWidth)return;if(host._anchor!=null)keep(host._anchor,0);else toNow()};
+  sc.addEventListener("scroll",()=>{if(sc.clientWidth)host._anchor=tAt(0)},{passive:true});
+  host.querySelectorAll("[data-z]").forEach(b=>b.onclick=()=>{const z=b.dataset.z;if(z==="now")return toNow();zoom(st.px*(z==="in"?1.6:1/1.6))});
+  host.querySelectorAll("[data-fit]").forEach(b=>b.onclick=()=>{const w=sc.clientWidth||600;st.px=Math.max(PX_MIN,Math.min(PX_MAX,w/+b.dataset.fit));store.set("zoom:"+key,st.px);draw();toNow();host._anchor=tAt(0)});
+  // ctrl/cmd + wheel (and trackpad pinch) zooms
+  sc.addEventListener("wheel",e=>{if(!e.ctrlKey&&!e.metaKey)return;e.preventDefault();const r=sc.getBoundingClientRect();zoom(st.px*Math.exp(-e.deltaY*0.0025),e.clientX-r.left)},{passive:false});
+  // two-finger pinch zooms; one finger scrolls natively. Redrawing removes the touched element from the page,
+  // and a removed element's touch events no longer reach the chart, so listen on the touched element itself.
+  let pinch=null;
+  const onMove=e=>{if(!pinch||e.touches.length!==2)return;e.preventDefault();const [a,b]=e.touches;const d=Math.hypot(a.clientX-b.clientX,a.clientY-b.clientY);
+    pinch.target=pinch.px*d/pinch.d;if(!pinch.raf)pinch.raf=requestAnimationFrame(()=>{if(pinch){pinch.raf=0;zoom(pinch.target,pinch.cx)}})};
+  const onEnd=e=>{if(e.touches.length<2&&pinch){if(pinch.el!==sc){pinch.el.removeEventListener("touchmove",onMove);pinch.el.removeEventListener("touchend",onEnd);pinch.el.removeEventListener("touchcancel",onEnd)}pinch=null}};
+  sc.addEventListener("touchstart",e=>{if(e.touches.length!==2)return;const [a,b]=e.touches;const r=sc.getBoundingClientRect();
+    pinch={d:Math.hypot(a.clientX-b.clientX,a.clientY-b.clientY)||1,px:st.px,cx:(a.clientX+b.clientX)/2-r.left,raf:0,el:e.target};
+    if(e.target!==sc){e.target.addEventListener("touchmove",onMove,{passive:false});e.target.addEventListener("touchend",onEnd);e.target.addEventListener("touchcancel",onEnd)}},{passive:true});
+  sc.addEventListener("touchmove",e=>{if(pinch&&pinch.el===sc)onMove(e)},{passive:false});
+  sc.addEventListener("touchend",e=>{if(pinch&&pinch.el===sc)onEnd(e)});sc.addEventListener("touchcancel",e=>{if(pinch&&pinch.el===sc)onEnd(e)});
+  // mouse drag pans
+  let drag=null;
+  sc.addEventListener("pointerdown",e=>{if(e.pointerType!=="mouse"||e.button!==0)return;drag={x:e.clientX,sl:sc.scrollLeft};sc.setPointerCapture(e.pointerId);sc.classList.add("grab")});
+  sc.addEventListener("pointermove",e=>{if(drag)sc.scrollLeft=drag.sl-(e.clientX-drag.x)});
+  const end=()=>{if(drag){drag=null;sc.classList.remove("grab")}};sc.addEventListener("pointerup",end);sc.addEventListener("pointercancel",end);
+  draw();host._refresh();
 }
-const rangeSeg=days=>'<div class="seg" role="group" aria-label="Range">'+[[7,"1 week"],[14,"2 weeks"],[30,"1 month"]].map(([d,t])=>'<button data-d="'+d+'" aria-pressed="'+(d===days)+'">'+t+'</button>').join("")+'</div>';
 const LEGEND='<div class="legend"><span><i style="background:var(--gold-soft);border-color:var(--gold)"></i>Hero</span><span><i style="background:var(--warn-soft);border-color:var(--warn)"></i>Before next TH</span><span><i style="background:var(--gold);border-color:var(--gold)"></i>Town Hall</span><span><i style="background:var(--sunk);border-color:var(--elixir)"></i>Offense</span><span><i style="background:var(--ok-soft);border-color:var(--ok)"></i>Economy</span><span><i style="background:var(--sunk);border-color:var(--elixir);border-style:dashed"></i>Research</span></div>';
 function renderTimeline(){
-  const el=document.getElementById("v-timeline");const lp=labPlan(V);
+  const el=document.getElementById("v-timeline");const lp=labPlan(V);const prev=el.querySelector(".gantt");
   const sim=simulateTimeline(V,lp.blocking,60);const lab=simulateLab(V,sim.events,60);
   const rows=[...sim.rows.map((r,i)=>({label:"Builder "+(i+1),bars:r})),{label:"Lab",bars:lab}];
-  let h='<div class="tl-tools"><div><h2 style="margin:0">Builder timeline</h2><p class="sub">Your current upgrades, then what the rush rules start next on each builder.</p></div>'+rangeSeg(TL_DAYS)+'</div>';
-  h+=ganttHTML(rows,TL_DAYS)+LEGEND;
+  let h='<div><h2 style="margin:0">Builder timeline</h2><p class="sub">Your current upgrades, then what the rush rules start next on each builder. Swipe or drag to scroll; pinch, ctrl+scroll or −/+ to zoom.</p></div>';
+  h+='<div class="gantt"></div>'+LEGEND;
   h+='<p class="sub">This is a forecast: it assumes you start each upgrade the moment a builder frees up and always have the loot. Paste a fresh export to re-plan.</p>';
   el.innerHTML=h;
-  el.querySelectorAll(".seg button").forEach(b=>b.onclick=()=>{TL_DAYS=+b.dataset.d;store.set("tlDays",TL_DAYS);renderTimeline()});
+  const g=el.querySelector(".gantt");if(prev)g._anchor=prev._anchor;mountGantt(g,rows,"tl");
 }
 
 // ---------- My Plan: hand-assigned upgrade queues ----------
@@ -575,7 +617,6 @@ function renderTimeline(){
 // each queue (a builder, the Lab, the Pet House) runs its items back to back after its current upgrade.
 // Saved shape: {q:{b1:[{o,to}],...,lab:[...],pet:[...]}, run:{objKey:queueId}} (run = which builder holds a running upgrade).
 let MP=store.get("myplan",null)||{q:{},run:{}};
-let MP_DAYS=store.get("myDays",14);
 const mpSave=()=>store.set("myplan",MP);
 const TH_MAX=()=>GD.B[ID.TH].L.length;
 // How many of a building a Town Hall allows (merged Cannons/Archer Towers/Wizard Towers keep their TH15 count).
@@ -675,7 +716,7 @@ function whenD(ms){const d=new Date(ms);return (ms-Date.now()<6*DAY*1000)?when(m
 const mpKind=o=>o.kind==="h"?"hero":o.kind==="u"||o.kind==="p"?"lab":o.key==="th"?"th":o.isNew&&o.cur===0?"gate":kindOf("b",o.id);
 const mpLvl=(o,to)=>o.kind==="b"&&to===1&&o.cur===0?"build":"Lvl "+to;
 
-let MP_CONFIRM=false;
+let MP_CONFIRM=false,MP_ANCHOR=null;
 function renderMyPlan(){
   const el=document.getElementById("v-myplan");if(!el)return;
   const R=mpObjects(V);mpReconcile(R);const S=mpSchedule(V,R);const now=Date.now();
@@ -693,7 +734,7 @@ function renderMyPlan(){
   // chart
   const rows=S.queues.map(q=>({label:q.label,bars:[...(q.headStep?[q.head].map(o=>({name:o.name,from:o.cur-1,to:o.cur,start:V.ts,end:o.fin,k:mpKind(o),running:true})):[]),
     ...q.items.filter(s=>s.st).map(s=>({name:s.o.name,from:s.to-1,to:s.to,start:s.start,end:s.end,cost:s.st.cost,res:s.st.res,k:mpKind(s.o),newb:s.o.cur===0&&s.to===1,warn:s.warn}))]}));
-  h+='<div class="tl-tools"><h3 style="margin:0">Timeline</h3>'+rangeSeg(MP_DAYS)+'</div>'+ganttHTML(rows,MP_DAYS);
+  h+='<div><h3 style="margin:0">Timeline</h3><div class="gantt"></div></div>';
   // queues
   h+='<div class="mp-grid">';
   for(const q of S.queues){
@@ -710,7 +751,8 @@ function renderMyPlan(){
   h+='</div>';
   h+='<p class="sub">Times assume you start each upgrade the moment the one before it finishes, without potions, books or the Builder\'s Apprentice. When you paste a new export, upgrades it shows as done or started come off the list.</p>';
   el.innerHTML=h;
-  el.querySelectorAll(".seg button").forEach(b=>b.onclick=()=>{MP_DAYS=+b.dataset.d;store.set("myDays",MP_DAYS);renderMyPlan()});
+  const gEl=el.querySelector(".gantt");gEl._anchor=MP_ANCHOR;mountGantt(gEl,rows,"mp");
+  gEl.querySelector(".tl-scroll").addEventListener("scroll",()=>{MP_ANCHOR=gEl._anchor},{passive:true});
   el.querySelectorAll("select.mv").forEach(sel=>sel.onchange=()=>{const a=MP.q[sel.dataset.q];const [it]=a.splice(+sel.dataset.i,1);(MP.q[sel.value]||(MP.q[sel.value]=[])).push(it);mpSave();renderMyPlan()});
   el.onclick=e=>{const b=e.target.closest("[data-act]");if(!b)return;const act=b.dataset.act,qid=b.dataset.q,i=+b.dataset.i;const a=MP.q[qid];
     if(act==="add")return mpOpenSheet(qid);
@@ -1008,7 +1050,7 @@ function renderAll(keepImport){syncWidget();headerMeta();renderPlan();renderTime
 
 // tabs
 function show(v){document.querySelectorAll("#tabs button").forEach(b=>b.setAttribute("aria-selected",b.dataset.v===v));
-  document.querySelectorAll("section.view").forEach(s=>s.hidden=s.id!=="v-"+v);document.querySelector(".wrap").classList.toggle("wide",v==="timeline"||v==="myplan");store.set("tab",v)}
+  document.querySelectorAll("section.view").forEach(s=>s.hidden=s.id!=="v-"+v);document.querySelector(".wrap").classList.toggle("wide",v==="timeline"||v==="myplan");store.set("tab",v);document.querySelectorAll("#v-"+v+" .gantt").forEach(g=>g._refresh&&g._refresh())}
 document.getElementById("tabs").onclick=e=>{const b=e.target.closest("button");if(b)show(b.dataset.v)};
 
 load();renderAll();
