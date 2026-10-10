@@ -29,9 +29,15 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v4
 
+      # The in-app updater compares this hash of android/ to decide whether a new APK is
+      # needed or the new page alone will do.
       - name: Build the APK
         working-directory: android
-        run: ./gradlew --no-daemon assembleDebug
+        run: |
+          export NATIVE_HASH=$(git rev-parse HEAD:android)
+          ./gradlew --no-daemon assembleDebug
+          echo "{\"build\":$GITHUB_RUN_NUMBER,\"native\":\"$NATIVE_HASH\"}" > ../version.json
+          cat ../version.json
 
       - name: Name the APK
         run: cp android/app/build/outputs/apk/debug/app-debug.apk rush-planner.apk
@@ -39,16 +45,19 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: rush-planner-apk
-          path: rush-planner.apk
+          path: |
+            rush-planner.apk
+            version.json
 
       # Keep one "android-latest" release whose APK is always the newest build of main.
+      # The app's updater reads version.json and rush-planner.html from here too.
       - name: Publish the latest APK
         if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release delete android-latest --cleanup-tag --yes || true
-          gh release create android-latest rush-planner.apk \
+          gh release create android-latest rush-planner.apk dist/rush-planner.html version.json \
             --target "$GITHUB_SHA" --prerelease \
             --title "Rush Planner for Android (latest)" \
-            --notes "Built from ${GITHUB_SHA::7}. Open this page on your phone, tap rush-planner.apk, then install it. New builds install over the old one and keep your saved export."
+            --notes "Built from ${GITHUB_SHA::7}. Open this page on your phone, tap rush-planner.apk, then install it. New builds install over the old one and keep your saved export. After that, use Check for updates on the app's Update tab."

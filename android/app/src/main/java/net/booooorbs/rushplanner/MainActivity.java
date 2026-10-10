@@ -2,7 +2,6 @@ package net.booooorbs.rushplanner;
 
 import android.app.Activity;
 import android.content.ActivityNotFoundException;
-import android.content.Context;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
@@ -20,6 +19,10 @@ import androidx.core.view.WindowCompat;
 import androidx.core.view.WindowInsetsCompat;
 import androidx.webkit.WebViewAssetLoader;
 
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+
 /** Hosts dist/rush-planner.html (bundled as an asset) in a full-screen WebView. */
 public class MainActivity extends Activity {
     // Served from a fixed https origin so localStorage (the saved export) persists across launches.
@@ -27,6 +30,7 @@ public class MainActivity extends Activity {
     private static final String START_URL = "https://" + HOST + "/assets/rush-planner.html";
 
     private WebView web;
+    private Updater updater;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -53,12 +57,25 @@ public class MainActivity extends Activity {
         s.setAllowFileAccess(false);
         s.setAllowContentAccess(false);
 
-        // The page reports its running timers here for the home-screen widget.
-        web.addJavascriptInterface(new WidgetBridge(getApplicationContext()), "RushPlannerAndroid");
+        updater = new Updater(this, () -> web.reload());
 
+        // The page reports its running timers here for the home-screen widget, and checks for updates.
+        web.addJavascriptInterface(new Bridge(), "RushPlannerAndroid");
+
+        // A page downloaded by the updater replaces the bundled one, on the same origin so saved data stays.
+        WebViewAssetLoader.AssetsPathHandler assets = new WebViewAssetLoader.AssetsPathHandler(this);
         WebViewAssetLoader loader = new WebViewAssetLoader.Builder()
                 .setDomain(HOST)
-                .addPathHandler("/assets/", new WebViewAssetLoader.AssetsPathHandler(this))
+                .addPathHandler("/assets/", path -> {
+                    File page = "rush-planner.html".equals(path) ? Updater.webFile(this) : null;
+                    if (page != null) {
+                        try {
+                            return new WebResourceResponse("text/html", "utf-8", new FileInputStream(page));
+                        } catch (FileNotFoundException ignored) {
+                        }
+                    }
+                    return assets.handle(path);
+                })
                 .build();
 
         web.setWebViewClient(new WebViewClient() {
@@ -84,20 +101,31 @@ public class MainActivity extends Activity {
             web.restoreState(savedInstanceState);
         } else {
             web.loadUrl(START_URL);
+            updater.check(false);
         }
     }
 
-    /** Exposed to the page as window.RushPlannerAndroid. */
-    public static class WidgetBridge {
-        private final Context context;
+    @Override
+    protected void onResume() {
+        super.onResume();
+        updater.resume();
+    }
 
-        WidgetBridge(Context context) {
-            this.context = context;
+    /** Exposed to the page as window.RushPlannerAndroid. */
+    public class Bridge {
+        @JavascriptInterface
+        public void setTimers(String json) {
+            TimersWidget.save(getApplicationContext(), json);
         }
 
         @JavascriptInterface
-        public void setTimers(String json) {
-            TimersWidget.save(context, json);
+        public String appVersion() {
+            return "build " + Updater.currentBuild(MainActivity.this);
+        }
+
+        @JavascriptInterface
+        public void checkForUpdates() {
+            runOnUiThread(() -> updater.check(true));
         }
     }
 
