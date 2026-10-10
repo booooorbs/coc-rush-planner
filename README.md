@@ -1,6 +1,6 @@
 # CoC Rush Planner
 
-A single-page Clash of Clans tracker that ranks your next builder, lab, hero and equipment upgrades using the rules from CallMeTee's *Strategic Rush Bible* (v1.6, "Tee Rush").
+A single-page Clash of Clans tracker that ranks your next builder, lab, hero and equipment upgrades using strategy from two community guides: CallMeTee's *Strategic Rush Bible* and dlimms' *5D Clash of Clans Rush Plan* (see [Credits](#credits)).
 
 Paste your in-game data export (Settings → More Settings → Data Export → Copy) on the **Update** tab. The page then shows:
 
@@ -51,3 +51,16 @@ To build locally (needs JDK 17 and the Android SDK):
 python3 scripts/build.py
 cd android && ./gradlew assembleDebug   # app/build/outputs/apk/debug/app-debug.apk
 ```
+
+## Credits
+
+The upgrade strategy in this planner is not ours. It comes from two free community guides, and all credit for it goes to their authors:
+
+- **CallMeTee's Strategic Rush Bible** (v1.6, the "Tee Rush") by CallMeTee: https://docs.google.com/document/d/1zP792qWKVN14hVX_RW4Mui65yRTqqtHaEaj_jwUY-us. The planner's upgrade priorities, lab order, pet tiers, equipment advice and "upgrade the Town Hall now if..." rules come from it. The guide's community is the Clash Files Family Discord.
+- **dlimms' 5D Clash of Clans Rush Plan** by dlimms: https://docs.google.com/document/d/195oY766co3G8e2-QitP5-YPyyjrGxQ6NFP9prnEyJ90. The per-Town-Hall building checklists (TH13 to 16) and the timing that starts the Town Hall upgrade so every builder finishes together come from it.
+
+This project only turns those rules into a tool that reads your village export. It isn't made by, affiliated with or endorsed by either author, and it may lag behind or simplify their guides. Read the guides themselves for the reasoning and the latest versions.
+
+## Disclaimer
+
+This material is unofficial and is not endorsed by Supercell. For more information see Supercell's Fan Content Policy: www.supercell.com/fan-content-policy.
