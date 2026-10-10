@@ -144,8 +144,20 @@ textarea{width:100%;min-height:150px;font:12px/1.4 ui-monospace,SFMono-Regular,M
 .tl-row{height:56px;position:relative;border-top:1px solid var(--line)}
 .tl-row:first-of-type{border-top:0}
 .tl-grid{position:absolute;top:34px;bottom:0;border-left:1px dashed var(--line);pointer-events:none}
+.tl-hr{position:absolute;top:17px;font-size:11px;color:var(--muted);padding-left:4px;white-space:nowrap}
+.tl-grid.hr{border-left-style:dotted;opacity:.6}
+.gantt{display:flex;flex-direction:column;gap:8px}
+.gz .seg button{min-width:40px;padding:5px 12px;font-size:15px}
+.tl-scroll{cursor:grab;touch-action:pan-x pan-y;-webkit-overflow-scrolling:touch;overscroll-behavior-x:contain}
+/* keep a bar's name in view when the bar starts left of the visible area (clip, not hidden, so sticky works) */
+.tl-bar b,.tl-bar span{position:sticky;left:6px;max-width:max-content}
+.tl-bar.mv{cursor:grab;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+.tl-bar.dragging{z-index:6;opacity:.9;box-shadow:0 6px 18px rgba(0,0,0,.28);cursor:grabbing;pointer-events:none}
+.tl-scroll.moving{cursor:grabbing}
+.tl-row.drop{background:var(--gold-soft)}
+.tl-scroll.grab{cursor:grabbing;user-select:none}
 .tl-now{position:absolute;top:0;bottom:0;width:2px;background:var(--crit);z-index:3;pointer-events:none}
-.tl-bar{position:absolute;top:6px;height:44px;border-radius:7px;padding:4px 8px;overflow:hidden;white-space:nowrap;font-size:12px;line-height:1.3;border:1px solid transparent;box-sizing:border-box;z-index:2}
+.tl-bar{position:absolute;top:6px;height:44px;border-radius:7px;padding:4px 8px;overflow:clip;white-space:nowrap;font-size:12px;line-height:1.3;border:1px solid transparent;box-sizing:border-box;z-index:2}
 .tl-bar b{display:block;font-size:12.5px;overflow:hidden;text-overflow:ellipsis}
 .tl-bar span{color:var(--muted);overflow:hidden;text-overflow:ellipsis;display:block}
 .tl-bar.k-hero{background:var(--gold-soft);border-color:var(--gold)}
@@ -158,6 +170,44 @@ textarea{width:100%;min-height:150px;font:12px/1.4 ui-monospace,SFMono-Regular,M
 .tl-bar.now-running{box-shadow:inset 3px 0 0 var(--crit)}
 .legend{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:12.5px;color:var(--muted)}
 .legend i{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:5px;vertical-align:-1px;border:1px solid}
+.tl-bar.warn{border-color:var(--crit)!important;box-shadow:inset 0 -3px 0 var(--crit)}
+/* My Plan */
+.mp-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,330px),1fr));gap:12px;align-items:start}
+.q{background:var(--surface);border:1px solid var(--line);border-radius:12px;overflow:hidden;display:flex;flex-direction:column}
+.q-h{display:flex;justify-content:space-between;align-items:baseline;gap:10px;padding:10px 12px;background:var(--sunk);border-bottom:1px solid var(--line)}
+.q-h b{font-family:var(--f-display);font-weight:400;font-size:17px;letter-spacing:.3px}
+.q-h .sub{text-align:right;font-size:12.5px}
+.qi{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 10px;padding:8px 10px 8px 12px;border-top:1px solid var(--line);align-items:center}
+.q-h+.qi{border-top:0}
+.qi .nm{grid-column:1;grid-row:1;min-width:0}
+.qi .tm{grid-column:2;grid-row:1;text-align:right;font-size:13px;font-weight:700;white-space:nowrap}
+.qi .dt{grid-column:1 / -1;font-size:12.5px;color:var(--muted);min-width:0}
+.qi .r2{grid-column:1 / -1;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
+.qi .ctl{display:flex;gap:4px;margin-left:auto}
+.qi .wn{grid-column:1 / -1;font-size:12.5px;color:var(--crit);font-weight:700}
+.qi.run{background:var(--gold-soft)}
+.qi.run .dt{grid-column:1 / -1}
+.qi.bad{box-shadow:inset 3px 0 0 var(--crit)}
+.ib{font:inherit;font-weight:800;font-size:13px;min-width:34px;height:34px;border-radius:8px;border:1px solid var(--line);background:var(--surface);color:var(--ink);cursor:pointer;padding:0 6px}
+.ib:disabled{opacity:.35;cursor:default}
+.ib.del{color:var(--crit)}
+select{font:inherit;font-size:13px;height:34px;border-radius:8px;border:1px solid var(--line);background:var(--surface);color:var(--ink);padding:0 6px}
+select.mv{max-width:104px}
+.q-add{font:inherit;font-weight:800;font-size:14px;margin:8px;padding:9px;border-radius:10px;border:1px dashed var(--line);background:none;color:var(--muted);cursor:pointer}
+.q-add:hover{color:var(--ink);border-color:var(--gold)}
+.sheet{position:fixed;inset:0;z-index:20;background:rgba(0,0,0,.45);display:flex;align-items:flex-end;justify-content:center}
+.sheet .panel{background:var(--bg);color:var(--ink);width:100%;max-width:640px;max-height:88vh;border-radius:16px 16px 0 0;display:flex;flex-direction:column;gap:10px;padding:14px 16px calc(10px + env(safe-area-inset-bottom,0px))}
+@media (min-width:700px){.sheet{align-items:center}.sheet .panel{border-radius:16px;max-height:80vh}}
+.sh-h{display:flex;justify-content:space-between;align-items:center}
+.sh-f{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.sh-f input{flex:1;min-width:140px;font:inherit;padding:7px 10px;border-radius:8px;border:1px solid var(--line);background:var(--surface);color:var(--ink)}
+.sh-list{overflow-y:auto;flex:1;min-height:120px;background:var(--surface);border:1px solid var(--line);border-radius:12px;overscroll-behavior:contain}
+.sh-list h3{padding:10px 12px 2px;margin:0}
+.sh-row{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 12px;border-top:1px solid var(--line)}
+.sh-list h3+.sh-row{border-top:0}
+.sh-row .ctl{display:flex;gap:6px;flex:none}
+.sh-row .btn{padding:6px 12px;min-width:40px}
+.sh-row .chip{margin:0 0 0 4px}
 @media (prefers-reduced-motion: reduce){*{transition:none!important;animation:none!important}}
 </style>
 
@@ -173,6 +223,7 @@ textarea{width:100%;min-height:150px;font:12px/1.4 ui-monospace,SFMono-Regular,M
     <nav class="tabs" role="tablist" id="tabs">
       <button role="tab" data-v="plan" aria-selected="true">Plan</button>
       <button role="tab" data-v="timeline" aria-selected="false">Timeline</button>
+      <button role="tab" data-v="myplan" aria-selected="false">My Plan</button>
       <button role="tab" data-v="lab" aria-selected="false">Lab &amp; Pets</button>
       <button role="tab" data-v="heroes" aria-selected="false">Heroes &amp; Gear</button>
       <button role="tab" data-v="tracker" aria-selected="false">Tracker</button>
@@ -183,6 +234,7 @@ textarea{width:100%;min-height:150px;font:12px/1.4 ui-monospace,SFMono-Regular,M
   <main>
     <section class="view" id="v-plan"></section>
     <section class="view" id="v-timeline" hidden></section>
+    <section class="view" id="v-myplan" hidden></section>
     <section class="view" id="v-lab" hidden></section>
     <section class="view" id="v-heroes" hidden></section>
     <section class="view" id="v-tracker" hidden></section>
@@ -463,7 +515,7 @@ function simulateTimeline(v,labBlocking,days){
   const st=makeState(v);const now=Date.now();const end=now+days*DAY*1000;
   const total=SET.builders||builderCount(v);const jobs=busyJobs(v);
   const rows=[];const q=[];const events=[];
-  jobs.slice(0,total).forEach((j,i)=>{rows[i]=[{name:j.name,from:j.from,to:j.from+1,start:v.ts,end:j.finish,cost:0,res:"",k:kindOf(j.kind,j.id),running:true}];q.push({row:i,at:j.finish,job:j})});
+  jobs.slice(0,total).forEach((j,i)=>{rows[i]=[{id:j.id,kind:j.kind,name:j.name,from:j.from,to:j.from+1,start:v.ts,end:j.finish,cost:0,res:"",k:kindOf(j.kind,j.id),running:true}];q.push({row:i,at:j.finish,job:j})});
   for(let k=rows.length;k<total;k++){rows[k]=[];q.push({row:k,at:now,job:null})}
   let guard=0;
   while(q.length&&guard++<600){
@@ -475,7 +527,7 @@ function simulateTimeline(v,labBlocking,days){
     if(!c)continue;
     applyStart(st,c);
     const start=it.at,fin=start+Math.max(60,c.time)*1000;
-    rows[it.row].push({name:c.name,from:c.from,to:c.to,start,end:fin,cost:c.cost,res:c.res,k:kindOf(c.kind,c.id),newb:c.kind==="new"});
+    rows[it.row].push({id:c.id,kind:c.kind,name:c.name,from:c.from,to:c.to,start,end:fin,cost:c.cost,res:c.res,k:kindOf(c.kind,c.id),newb:c.kind==="new"});
     q.push({row:it.row,at:fin,job:{kind:c.kind==="h"?"h":"b",id:c.id,from:c.from,name:c.name,finish:fin}});
   }
   return {rows,events};
@@ -487,7 +539,7 @@ function simulateLab(v,events,days){
   const thAt=t=>v.th+events.filter(e=>e.id===ID.TH&&e.at<=t).length;
   let t=Date.now();
   const cur=Object.entries(v.units).find(([id,u])=>u.timer);
-  if(cur){const fin=v.ts+cur[1].timer*1000;bars.push({name:uDef(cur[0]).n,from:cur[1].lvl,to:cur[1].lvl+1,start:v.ts,end:fin,k:"lab",running:true});lvl[cur[0]]++;t=fin}
+  if(cur){const fin=v.ts+cur[1].timer*1000;bars.push({id:+cur[0],name:uDef(cur[0]).n,from:cur[1].lvl,to:cur[1].lvl+1,start:v.ts,end:fin,k:"lab",running:true});lvl[cur[0]]++;t=fin}
   const farm=[...SET.farm,...SET.spells];
   let guard=0;
   while(t<end&&guard++<300){
@@ -499,40 +551,335 @@ function simulateLab(v,events,days){
       return lvl[a]/uCap(a,th)-lvl[b]/uCap(b,th)});
     const id=open[0];const n=rNext(uDef(id),lvl[id]);
     const fin=t+Math.max(60,n.time)*1000;
-    bars.push({name:uDef(id).n,from:lvl[id],to:lvl[id]+1,start:t,end:fin,cost:n.cost,res:uDef(id).r,k:"lab"});
+    bars.push({id,name:uDef(id).n,from:lvl[id],to:lvl[id]+1,start:t,end:fin,cost:n.cost,res:uDef(id).r,k:"lab"});
     lvl[id]++;t=fin;
   }
   return bars;
 }
-let TL_DAYS=store.get("tlDays",14);
-function renderTimeline(){
-  const el=document.getElementById("v-timeline");const lp=labPlan(V);
-  const sim=simulateTimeline(V,lp.blocking,60);const lab=simulateLab(V,sim.events,60);
-  const pxDay={7:170,14:110,30:56}[TL_DAYS]||110;
+// Gantt chart shared by the Timeline and My Plan tabs. rows: [{label,bars:[{name,from,to,start,end,cost,res,k,running,newb,warn}]}]
+// Scrolls sideways (swipe, drag, shift+wheel) and zooms (buttons, pinch, ctrl+wheel); zoom is px per day, saved per chart.
+const PX_MIN=8,PX_MAX=2400;
+// opts.onMove(queueId,index,toRowId,time): makes bars that carry dq/di draggable onto rows of the same r.type.
+function mountGantt(host,rows,key,opts){opts=opts||{};
+  const st={px:store.get("zoom:"+key,110),anchor:host._anchor};
   const now=Date.now();const d0=new Date(now);d0.setHours(0,0,0,0);const t0=d0.getTime();
-  const width=Math.round((TL_DAYS+1)*pxDay);const x=t=>(t-t0)/(DAY*1000)*pxDay;
+  const lastEnd=Math.max(now,...rows.flatMap(r=>r.bars.map(b=>b.end)));
+  const days=Math.min(90,Math.max(7,Math.ceil((lastEnd-t0)/(DAY*1000))+1));
+  host.innerHTML='<div class="tl-tools gz"><div class="btns"><div class="seg" role="group" aria-label="Scroll"><button data-z="back" aria-label="Scroll back">‹</button><button data-z="now">Now</button><button data-z="fwd" aria-label="Scroll forward">›</button></div><div class="seg" role="group" aria-label="Zoom"><button data-z="out" aria-label="Zoom out">−</button><button data-z="in" aria-label="Zoom in">+</button></div></div>'+
+    '<div class="seg" role="group" aria-label="Show">'+[[1,"1 day"],[7,"1 week"],[14,"2 weeks"],[30,"1 month"]].map(([d,t])=>'<button data-fit="'+d+'">'+t+'</button>').join("")+'</div></div>'+
+    '<div class="tl"><div class="tl-labels"><div>'+esc(new Date(now).toLocaleDateString(undefined,{month:"long"}))+'</div>'+rows.map(r=>'<div>'+esc(r.label)+'</div>').join("")+'</div><div class="tl-scroll"><div class="tl-canvas"></div></div></div>';
+  const sc=host.querySelector(".tl-scroll"),cv=host.querySelector(".tl-canvas");
+  const draw=()=>{const px=st.px;const width=Math.round(days*px);const x=t=>(t-t0)/(DAY*1000)*px;
+    const step=px>=1600?1:px>=800?2:px>=400?3:px>=220?6:0;
+    let ax="",grid="";
+    for(let i=0;i<=days;i++){const d=new Date(t0+i*DAY*1000);const left=x(d.getTime());
+      const wk=d.getDay()===1;const txt=(i===0||d.getDate()===1?d.toLocaleDateString(undefined,{month:"short"})+" ":"")+d.getDate()+(px>=60?" "+d.toLocaleDateString(undefined,{weekday:"short"}):"");
+      ax+='<div class="tl-day'+(wk?" wk":"")+'" style="left:'+left+'px">'+esc(txt)+'</div>';grid+='<div class="tl-grid" style="left:'+left+'px"></div>';
+      if(step&&i<days)for(let hh=step;hh<24;hh+=step){const hl=x(t0+i*DAY*1000+hh*3600000);
+        ax+='<div class="tl-hr" style="left:'+hl+'px">'+new Date(t0+i*DAY*1000+hh*3600000).toLocaleTimeString(undefined,{hour:"numeric"})+'</div>';grid+='<div class="tl-grid hr" style="left:'+hl+'px"></div>';}}
+    const bar=b=>{const l=Math.max(0,x(b.start)),r=Math.min(width,x(b.end));if(r<=0||l>=width||r-l<2)return "";
+      const lvl=b.newb?"new":b.from+" → "+b.to;
+      const cost=b.cost?' · <em class="'+resCls(b.res)+'" style="font-style:normal">'+num(b.cost)+'</em>':"";
+      const tip=b.name+" "+lvl+" · "+(b.running?"in progress, done ":"start "+when(b.start)+", done ")+when(b.end)+(b.warn?" · "+b.warn:"")+(b.dq&&opts.onMove?" · drag to move (press and hold on touch)":"");
+      return '<div class="tl-bar k-'+b.k+(b.running?" now-running":"")+(b.warn?" warn":"")+(b.dq&&opts.onMove?" mv":"")+'"'+(b.dq&&opts.onMove?' data-q="'+b.dq+'" data-i="'+b.di+'"':'')+' style="left:'+l+'px;width:'+(r-l-2)+'px" title="'+esc(tip)+'"><b>'+esc(b.name)+' '+lvl+'</b><span>'+(b.running?"done in "+dur((b.end-now)/1000):dur((b.end-b.start)/1000))+cost+'</span></div>'};
+    cv.style.width=width+"px";
+    cv.innerHTML='<div class="tl-axis">'+ax+'</div>'+grid+rows.map(r=>'<div class="tl-row">'+r.bars.map(bar).join("")+'</div>').join("")+'<div class="tl-now" style="left:'+x(now)+'px"></div>';};
+  const tAt=cx=>t0+(sc.scrollLeft+cx)/st.px*DAY*1000;
+  const keep=(t,cx)=>{sc.scrollLeft=(t-t0)/(DAY*1000)*st.px-cx};
+  // zoom around a point on screen (cx = px from the chart's left edge)
+  const zoom=(px,cx)=>{px=Math.max(PX_MIN,Math.min(PX_MAX,px));if(cx==null)cx=sc.clientWidth/2;const t=tAt(cx);st.px=px;draw();keep(t,cx);host._anchor=tAt(0);store.set("zoom:"+key,px)};
+  const toNow=()=>keep(now,Math.min(sc.clientWidth*.15,80));
+  host._refresh=()=>{if(!sc.clientWidth)return;if(host._anchor!=null)keep(host._anchor,0);else toNow()};
+  sc.addEventListener("scroll",()=>{if(sc.clientWidth)host._anchor=tAt(0)},{passive:true});
+  host.querySelectorAll("[data-z]").forEach(b=>b.onclick=()=>{const z=b.dataset.z;if(z==="now")return toNow();if(z==="back"||z==="fwd")return sc.scrollBy({left:(z==="fwd"?1:-1)*sc.clientWidth*.8,behavior:"smooth"});zoom(st.px*(z==="in"?1.6:1/1.6))});
+  host.querySelectorAll("[data-fit]").forEach(b=>b.onclick=()=>{const w=sc.clientWidth||600;st.px=Math.max(PX_MIN,Math.min(PX_MAX,w/+b.dataset.fit));store.set("zoom:"+key,st.px);draw();toNow();host._anchor=tAt(0)});
+  // ctrl/cmd + wheel (and trackpad pinch) zooms
+  // mouse wheel over the chart zooms around the pointer (up = in); shift+wheel and sideways trackpad swipes scroll
+  sc.addEventListener("wheel",e=>{
+    if(e.shiftKey&&!e.deltaX){e.preventDefault();sc.scrollLeft+=e.deltaY*(e.deltaMode===1?40:1);return}
+    if(Math.abs(e.deltaX)>=Math.abs(e.deltaY))return;
+    e.preventDefault();const r=sc.getBoundingClientRect();const dy=e.deltaY*(e.deltaMode===1?40:e.deltaMode===2?400:1);
+    zoom(st.px*Math.exp(-Math.max(-300,Math.min(300,dy))*0.0025),e.clientX-r.left)},{passive:false});
+  // two-finger pinch zooms; one finger scrolls natively. Redrawing removes the touched element from the page,
+  // and a removed element's touch events no longer reach the chart, so listen on the touched element itself.
+  let pinch=null;
+  const onMove=e=>{if(!pinch||mv||e.touches.length!==2)return;e.preventDefault();const [a,b]=e.touches;const d=Math.hypot(a.clientX-b.clientX,a.clientY-b.clientY);
+    pinch.target=pinch.px*d/pinch.d;if(!pinch.raf)pinch.raf=requestAnimationFrame(()=>{if(pinch){pinch.raf=0;zoom(pinch.target,pinch.cx)}})};
+  const onEnd=e=>{if(e.touches.length<2&&pinch){if(pinch.el!==sc){pinch.el.removeEventListener("touchmove",onMove);pinch.el.removeEventListener("touchend",onEnd);pinch.el.removeEventListener("touchcancel",onEnd)}pinch=null}};
+  sc.addEventListener("touchstart",e=>{if(e.touches.length!==2)return;const [a,b]=e.touches;const r=sc.getBoundingClientRect();
+    pinch={d:Math.hypot(a.clientX-b.clientX,a.clientY-b.clientY)||1,px:st.px,cx:(a.clientX+b.clientX)/2-r.left,raf:0,el:e.target};
+    if(e.target!==sc){e.target.addEventListener("touchmove",onMove,{passive:false});e.target.addEventListener("touchend",onEnd);e.target.addEventListener("touchcancel",onEnd)}},{passive:true});
+  sc.addEventListener("touchmove",e=>{if(pinch&&pinch.el===sc)onMove(e)},{passive:false});
+  sc.addEventListener("touchend",e=>{if(pinch&&pinch.el===sc)onEnd(e)});sc.addEventListener("touchcancel",e=>{if(pinch&&pinch.el===sc)onEnd(e)});
+  // drag a planned bar onto a row (another builder, or a new spot in the same one)
+  let mv=null;
+  const rowAt=y=>[...cv.querySelectorAll(".tl-row")].findIndex(r=>{const b=r.getBoundingClientRect();return y>=b.top&&y<b.bottom});
+  const mvStart=(el,cx,cy)=>{const r=el.getBoundingClientRect();
+    mv={el,cx,cy,off:cx-r.left,type:(rows[[...cv.querySelectorAll(".tl-row")].indexOf(el.closest(".tl-row"))]||{}).type,to:-1};el.classList.add("dragging");sc.classList.add("moving");};
+  const mvMove=(cx,cy)=>{if(!mv)return;mv.el.style.transform="translate("+(cx-mv.cx)+"px,"+(cy-mv.cy)+"px)";
+    const r=sc.getBoundingClientRect();if(cx<r.left+28)sc.scrollLeft-=12;else if(cx>r.right-28)sc.scrollLeft+=12;
+    const i=rowAt(cy);const ok=i>=0&&rows[i].type===mv.type;cv.querySelectorAll(".tl-row").forEach((rw,k)=>rw.classList.toggle("drop",ok&&k===i));mv.to=ok?i:-1;mv.x=cx};
+  const mvEnd=cancel=>{if(!mv)return;const m=mv;mv=null;sc.classList.remove("moving");
+    if(cancel||m.to<0||m.x==null){m.el.style.transform="";m.el.classList.remove("dragging");cv.querySelectorAll(".tl-row.drop").forEach(r=>r.classList.remove("drop"));return}
+    const r=sc.getBoundingClientRect();host._anchor=tAt(0);opts.onMove(m.el.dataset.q,+m.el.dataset.i,rows[m.to].id,tAt(m.x-m.off-r.left))};
+  if(opts.onMove){
+    // touch: press and hold a bar to pick it up, so a normal swipe still scrolls
+    let hold=null;
+    sc.addEventListener("touchstart",e=>{const el=e.target.closest&&e.target.closest(".tl-bar.mv");if(!el||e.touches.length!==1)return;const t=e.touches[0];
+      hold={x:t.clientX,y:t.clientY,timer:setTimeout(()=>{hold=null;mvStart(el,t.clientX,t.clientY);if(navigator.vibrate)try{navigator.vibrate(20)}catch(_){}},380)};
+      const tm=ev=>{const u=ev.touches[0];if(mv){ev.preventDefault();mvMove(u.clientX,u.clientY)}else if(hold&&Math.hypot(u.clientX-hold.x,u.clientY-hold.y)>8){clearTimeout(hold.timer);hold=null}};
+      const te=ev=>{if(hold){clearTimeout(hold.timer);hold=null}el.removeEventListener("touchmove",tm);el.removeEventListener("touchend",te);el.removeEventListener("touchcancel",te);mvEnd(ev.type==="touchcancel")};
+      el.addEventListener("touchmove",tm,{passive:false});el.addEventListener("touchend",te);el.addEventListener("touchcancel",te);},{passive:true});
+    sc.addEventListener("contextmenu",e=>{if(e.target.closest(".tl-bar.mv"))e.preventDefault()});
+  }
+  // mouse drag pans, or moves a planned bar
+  let drag=null;
+  sc.addEventListener("pointerdown",e=>{if(e.pointerType!=="mouse"||e.button!==0)return;
+    const el=opts.onMove&&e.target.closest(".tl-bar.mv");
+    if(el){e.preventDefault();sc.setPointerCapture(e.pointerId);const sx=e.clientX,sy=e.clientY;
+      const pm=ev=>{if(!mv&&Math.hypot(ev.clientX-sx,ev.clientY-sy)>5)mvStart(el,sx,sy);mvMove(ev.clientX,ev.clientY)};
+      const pu=ev=>{sc.removeEventListener("pointermove",pm);sc.removeEventListener("pointerup",pu);sc.removeEventListener("pointercancel",pu);mvEnd(ev.type==="pointercancel")};
+      sc.addEventListener("pointermove",pm);sc.addEventListener("pointerup",pu);sc.addEventListener("pointercancel",pu);return}drag={x:e.clientX,sl:sc.scrollLeft};sc.setPointerCapture(e.pointerId);sc.classList.add("grab")});
+  sc.addEventListener("pointermove",e=>{if(drag)sc.scrollLeft=drag.sl-(e.clientX-drag.x)});
+  const end=()=>{if(drag){drag=null;sc.classList.remove("grab")}};sc.addEventListener("pointerup",end);sc.addEventListener("pointercancel",end);
+  draw();host._refresh();
+}
+const LEGEND='<div class="legend"><span><i style="background:var(--gold-soft);border-color:var(--gold)"></i>Hero</span><span><i style="background:var(--warn-soft);border-color:var(--warn)"></i>Before next TH</span><span><i style="background:var(--gold);border-color:var(--gold)"></i>Town Hall</span><span><i style="background:var(--sunk);border-color:var(--elixir)"></i>Offense</span><span><i style="background:var(--ok-soft);border-color:var(--ok)"></i>Economy</span><span><i style="background:var(--sunk);border-color:var(--elixir);border-style:dashed"></i>Research</span></div>';
+function renderTimeline(){
+  const el=document.getElementById("v-timeline");const lp=labPlan(V);const prev=el.querySelector(".gantt");
+  const sim=simulateTimeline(V,lp.blocking,60);const lab=simulateLab(V,sim.events,60);
   const rows=[...sim.rows.map((r,i)=>({label:"Builder "+(i+1),bars:r})),{label:"Lab",bars:lab}];
-  let ax="",grid="";
-  for(let i=0;i<=TL_DAYS+1;i++){const d=new Date(t0+i*DAY*1000);const left=i*pxDay;
-    const wk=d.getDay()===1;const txt=(i===0||d.getDate()===1?d.toLocaleDateString(undefined,{month:"short"})+" ":"")+d.getDate()+(pxDay>=100?" "+d.toLocaleDateString(undefined,{weekday:"short"}):"");
-    ax+='<div class="tl-day'+(wk?" wk":"")+'" style="left:'+left+'px">'+esc(txt)+'</div>';grid+='<div class="tl-grid" style="left:'+left+'px"></div>';}
-  const bar=b=>{const l=Math.max(0,x(b.start)),r=Math.min(width,x(b.end));if(r<=0||l>=width||r-l<2)return "";
-    const lvl=b.newb?"new":b.from+" → "+b.to;const dt=dur((b.end-Math.max(b.start,b.running?now:b.start))/1000);
-    const cost=b.cost?' · <em class="'+resCls(b.res)+'" style="font-style:normal">'+num(b.cost)+'</em>':"";
-    const tip=b.name+" "+lvl+" · "+(b.running?"in progress, done ":"start "+when(b.start)+", done ")+when(b.end);
-    return '<div class="tl-bar k-'+b.k+(b.running?" now-running":"")+'" style="left:'+l+'px;width:'+(r-l-2)+'px" title="'+esc(tip)+'"><b>'+esc(b.name)+' '+lvl+'</b><span>'+(b.running?"done in "+dur((b.end-now)/1000):dur((b.end-b.start)/1000))+cost+'</span></div>'};
-  let h='<div class="tl-tools"><div><h2 style="margin:0">Builder timeline</h2><p class="sub">Your current upgrades, then what the rush rules start next on each builder.</p></div>'+
-    '<div class="seg" role="group" aria-label="Range">'+[[7,"1 week"],[14,"2 weeks"],[30,"1 month"]].map(([d,t])=>'<button data-d="'+d+'" aria-pressed="'+(d===TL_DAYS)+'">'+t+'</button>').join("")+'</div></div>';
-  h+='<div class="tl"><div class="tl-labels"><div>'+esc(new Date(now).toLocaleDateString(undefined,{month:"long"}))+'</div>'+rows.map(r=>'<div>'+r.label+'</div>').join("")+'</div>';
-  h+='<div class="tl-scroll" id="tlScroll"><div class="tl-canvas" style="width:'+width+'px"><div class="tl-axis">'+ax+'</div>'+grid+
-    rows.map(r=>'<div class="tl-row">'+r.bars.map(bar).join("")+'</div>').join("")+
-    '<div class="tl-now" style="left:'+x(now)+'px"></div></div></div></div>';
-  h+='<div class="legend"><span><i style="background:var(--gold-soft);border-color:var(--gold)"></i>Hero</span><span><i style="background:var(--warn-soft);border-color:var(--warn)"></i>Before next TH</span><span><i style="background:var(--gold);border-color:var(--gold)"></i>Town Hall</span><span><i style="background:var(--sunk);border-color:var(--elixir)"></i>Offense</span><span><i style="background:var(--ok-soft);border-color:var(--ok)"></i>Economy</span><span><i style="background:var(--sunk);border-color:var(--elixir);border-style:dashed"></i>Research</span></div>';
+  let h='<div><h2 style="margin:0">Builder timeline</h2><p class="sub">Your current upgrades, then what the rush rules start next on each builder. Drag, swipe, shift+scroll or ‹ › to move along it; scroll the mouse wheel, pinch or −/+ to zoom.</p></div>';
+  h+='<div class="gantt"></div>'+LEGEND;
   h+='<p class="sub">This is a forecast: it assumes you start each upgrade the moment a builder frees up and always have the loot. Paste a fresh export to re-plan.</p>';
   el.innerHTML=h;
-  el.querySelectorAll(".seg button").forEach(b=>b.onclick=()=>{TL_DAYS=+b.dataset.d;store.set("tlDays",TL_DAYS);renderTimeline()});
-  
+  const g=el.querySelector(".gantt");if(prev)g._anchor=prev._anchor;mountGantt(g,rows,"tl");
 }
+
+// ---------- My Plan: hand-assigned upgrade queues ----------
+// Every upgrade level is its own item. Objects are one per building instance, hero, troop/spell/siege and pet;
+// each queue (a builder, the Lab, the Pet House) runs its items back to back after its current upgrade.
+// Saved shape: {q:{b1:[{o,to}],...,lab:[...],pet:[...]}, run:{objKey:queueId}} (run = which builder holds a running upgrade).
+let MP=store.get("myplan",null)||{q:{},run:{}};
+const mpSave=()=>store.set("myplan",MP);
+const TH_MAX=()=>GD.B[ID.TH].L.length;
+// How many of a building a Town Hall allows (merged Cannons/Archer Towers/Wizard Towers keep their TH15 count).
+function instCount(id,th){if([ID.CANNON,ID.AT,ID.WT].includes(id))th=Math.min(th,15);return requiredCounts(th)[id]||0}
+const NO_NEW=[ID.WALL,ID.HUT,ID.BOB,ID.CRAFT,ID.TH];
+
+function mpObjects(v){
+  const O={},byId={};
+  const add=o=>{O[o.key]=o;(byId[o.id]||(byId[o.id]=[])).push(o)};
+  const fin=t=>t?v.ts+t*1000:0;
+  add({key:"th",kind:"b",id:ID.TH,inst:1,name:"Town Hall",lvl:v.th,cur:v.th+(v.thTimer?1:0),fin:fin(v.thTimer),q:"b",cat:"Town Hall",max:TH_MAX()});
+  const blds=(src,ids,kind)=>{for(const id of ids){if(+id===ID.WALL||+id===ID.TH)continue;const g=(src==="T"?GD.T:GD.B)[id];if(!g)continue;
+    const arr=[];for(const x of ((src==="T"?v.traps:v.b)[id]||[]))for(let k=0;k<x.n;k++)arr.push({lvl:x.lvl,fin:fin(x.timer)});
+    arr.sort((a,b)=>(b.lvl+(b.fin?1:0))-(a.lvl+(a.fin?1:0))||(b.fin?1:0)-(a.fin?1:0));
+    const have=arr.length;const total=NO_NEW.includes(+id)?have:Math.max(have,instCount(+id,TH_MAX()));
+    for(let k=0;k<total;k++){const x=arr[k]||{lvl:0,fin:0};
+      add({key:kind+":"+id+":"+(k+1),kind:"b",id:+id,inst:k+1,n:total,isNew:k>=have,name:g.n+(total>1?" #"+(k+1):""),lvl:x.lvl,cur:x.lvl+(x.fin?1:0),fin:x.fin,q:"b",
+        cat:src==="T"?"Traps":({Army:"Army",Resource:"Resources",Defense:"Defenses",Worker:"Builder huts"})[g.t]||"Other",max:g.L.length});}}};
+  blds("B",new Set([...Object.keys(v.b),...Object.keys(requiredCounts(TH_MAX()))].filter(id=>GD.B[id])),"b");
+  blds("T",new Set([...Object.keys(v.traps),...Object.keys(requiredCounts(TH_MAX()))].filter(id=>GD.T[id])),"t");
+  for(const id of HERO_ORDER){const h=v.heroes[id];if(!h)continue;
+    add({key:"h:"+id,kind:"h",id,name:GD.H[id].n,lvl:h.lvl,cur:h.lvl+(h.timer?1:0),fin:fin(h.timer),q:"b",cat:"Heroes",max:GD.H[id].L.length});}
+  for(const id in v.units){const d=uDef(id),u=v.units[id];
+    add({key:"u:"+id,kind:"u",id:+id,name:d.n,lvl:u.lvl,cur:u.lvl+(u.timer?1:0),fin:fin(u.timer),q:"lab",cat:GD.SP[id]?"Spells":d.pb==="Workshop"?"Sieges":"Troops",max:d.L.length});}
+  for(const id in v.pets){const p=v.pets[id];
+    add({key:"p:"+id,kind:"p",id:+id,name:GD.P[id].n,lvl:p.lvl,cur:p.lvl+(p.timer?1:0),fin:fin(p.timer),q:"pet",cat:"Pets",max:GD.P[id].L.length});}
+  return {O,byId};
+}
+// Cost, time and requirements of taking an object to level `to`.
+function mpStep(o,to){
+  if(o.kind==="b"){const g=GD.B[o.id]||GD.T[o.id];const e=g.L[to-1];return e?{time:e[1],cost:e[2],res:g.r,th:e[0]}:null}
+  const def=o.kind==="h"?GD.H[o.id]:o.kind==="u"?uDef(o.id):GD.P[o.id];const e=def.L[to-1],c=def.L[to-2];if(!e||!c)return null;
+  return {time:c[2],cost:c[3],res:o.kind==="p"?"Dark Elixir":def.r,th:e[0],need:e[1]};
+}
+// The highest level an object can reach at a Town Hall (ignoring Hero Hall / Lab / Pet House).
+function mpCap(o,th){
+  if(o.key==="th")return TH_MAX();
+  if(o.kind==="b"){if(o.isNew&&instCount(o.id,th)<o.inst)return 0;return bCap(o.id,th)}
+  if(o.kind==="h")return hCap(o.id,th);if(o.kind==="u")return uCap(o.id,th);return pCap(o.id,th);
+}
+const mpQueues=v=>{const n=SET.builders||builderCount(v);const q=[];for(let i=1;i<=n;i++)q.push({id:"b"+i,label:"Builder "+i,type:"b"});
+  q.push({id:"lab",label:"Lab",type:"lab"});if(v.th>=14||Object.keys(v.pets).length||mpPlannedTH(v)>=14)q.push({id:"pet",label:"Pet House",type:"pet"});return q};
+const mpItems=()=>Object.values(MP.q).flat();
+function mpPlannedTH(v){let t=v.th+(v.thTimer?1:0);for(const it of mpItems())if(it.o==="th")t=Math.max(t,it.to);return t}
+function mpNext(o){let t=o.cur;for(const it of mpItems())if(it.o===o.key)t=Math.max(t,it.to);return t+1}
+
+// Drop items a fresh export shows as done or started; remember which builder a started item was on.
+function mpReconcile(R){
+  let changed=false;
+  for(const qid in MP.q){MP.q[qid]=MP.q[qid].filter(it=>{const o=R.O[it.o];if(!o)return true;
+    if(it.to<=o.cur){if(o.fin&&it.to===o.cur&&qid[0]==="b"){MP.run[o.key]=qid}changed=true;return false}return true})}
+  for(const k in MP.run)if(!R.O[k]||!R.O[k].fin){delete MP.run[k];changed=true}
+  if(changed)mpSave();
+}
+
+function mpSchedule(v,R){
+  const now=Date.now();const queues=mpQueues(v).map(q=>Object.assign({},q,{head:null,items:[]}));
+  const byQ=id=>queues.find(q=>q.id===id);
+  // current upgrades become each queue's first, fixed item
+  const running=Object.values(R.O).filter(o=>o.fin).sort((a,b)=>a.fin-b.fin);
+  const bq=()=>queues.filter(q=>q.type==="b");
+  for(const o of running){
+    if(o.q!=="b"){const q=byQ(o.q);if(q&&!q.head)q.head=o;continue}
+    let q=MP.run[o.key]&&byQ(MP.run[o.key]);if(q&&q.head)q=null;
+    if(!q){q=bq().find(q=>!q.head&&!Object.values(MP.run).includes(q.id));if(!q)q=bq().find(q=>!q.head)}
+    if(!q){q={id:"x"+o.key,label:"Extra builder",type:"b",head:null,items:[],extra:true};queues.splice(bq().length,0,q)}
+    q.head=o;}
+  const steps=[];
+  for(const q of queues){
+    let t=now;
+    if(q.head){const s={o:q.head,to:q.head.cur,start:q.head.fin,end:q.head.fin,running:true};steps.push(s);q.headStep=s;t=Math.max(now,q.head.fin)}
+    for(const it of (MP.q[q.id]||[])){const o=R.O[it.o];const st=o&&mpStep(o,it.to);
+      const s={it,o,to:it.to,st,start:t,end:t+(st?st.time*1000:0),q:q.id,warn:o&&st?"":"Not in your village data any more"};
+      q.items.push(s);if(o&&st)steps.push(s);t=s.end;}
+    q.end=t;}
+  // levels at a moment, from finished steps
+  const doneBy=(key,t)=>steps.filter(s=>s.o.key===key&&s.end<=t).length;
+  const lvlAt=(key,t)=>{const o=R.O[key];return o?o.lvl+doneBy(key,t):0};
+  const thAt=t=>lvlAt("th",t);
+  const one=id=>"b:"+id+":1";
+  for(const q of queues)for(const s of q.items){if(s.warn)continue;const o=s.o,st=s.st,t=s.start;const w=[];
+    const th=thAt(t);
+    if(st.th>th)w.push("Needs TH"+st.th+" (TH"+th+" then)");
+    if(o.kind==="b"&&o.isNew&&s.to===1&&instCount(o.id,th)<o.inst)w.push("TH"+th+" allows only "+instCount(o.id,th));
+    if(o.kind==="h"&&st.need>lvlAt(one(ID.HH),t))w.push("Needs Hero Hall "+st.need);
+    if(o.kind==="u"&&st.need>lvlAt(one(ID.LAB),t))w.push("Needs Lab "+st.need);
+    if(o.kind==="p"&&st.need>lvlAt(one(ID.PET),t))w.push("Needs Pet House "+st.need);
+    const prev=steps.find(p=>p.o.key===o.key&&p.to===s.to-1);
+    if(s.to-1>o.cur&&!prev)w.push("Level "+(s.to-1)+" isn't planned");
+    else if(prev&&prev.end>t+1000)w.push("Starts before level "+(s.to-1)+" is done ("+whenD(prev.end)+")");
+    if(steps.some(p=>p!==s&&p.o.key===o.key&&p.to===s.to))w.push("Planned twice");
+    s.warn=w.join(" · ");}
+  const tot={};for(const q of queues)for(const s of q.items)if(s.st&&s.st.cost)tot[s.st.res]=(tot[s.st.res]||0)+s.st.cost;
+  return {queues,tot,thEnd:mpPlannedTH(v)};
+}
+function whenD(ms){const d=new Date(ms);return (ms-Date.now()<6*DAY*1000)?when(ms):d.toLocaleString(undefined,{month:"short",day:"numeric",hour:"numeric",minute:"2-digit"})}
+const mpKind=o=>o.kind==="h"?"hero":o.kind==="u"||o.kind==="p"?"lab":o.key==="th"?"th":o.isNew&&o.cur===0?"gate":kindOf("b",o.id);
+const mpLvl=(o,to)=>o.kind==="b"&&to===1&&o.cur===0?"build":"Lvl "+to;
+
+let MP_CONFIRM=false,MP_ANCHOR=null;
+function renderMyPlan(){
+  const el=document.getElementById("v-myplan");if(!el)return;
+  const R=mpObjects(V);mpReconcile(R);const S=mpSchedule(V,R);const now=Date.now();
+  const n=mpItems().length;
+  let h='<div class="tl-tools"><div><h2 style="margin:0">My plan</h2><p class="sub">Your own queues: pick each upgrade level and the builder it goes on. Each queue starts after its current upgrade.</p></div>'+
+    '<div class="btns"><button class="btn primary" data-act="add" data-q="auto">+ Add upgrades</button><button class="btn" data-act="copy">Copy recommended plan</button>'+(n?'<button class="btn" data-act="clear">Clear</button>':'')+'</div></div>';
+  if(MP_CONFIRM)h+='<div class="alert warn"><span class="dot"></span><div style="flex:1"><b>'+(MP_CONFIRM==="copy"?"Replace your builder and Lab queues with the recommended plan's next 30 days?":"Remove all "+n+" planned upgrades?")+'</b><div class="btns" style="margin-top:8px"><button class="btn primary" data-act="yes">'+(MP_CONFIRM==="copy"?"Replace":"Remove all")+'</button><button class="btn" data-act="no">Cancel</button></div></div></div>';
+  // summary
+  const bEnd=Math.max(now,...S.queues.filter(q=>q.type==="b").map(q=>q.end));
+  const warns=S.queues.reduce((a,q)=>a+q.items.filter(s=>s.warn).length,0);
+  h+='<div class="summary"><div class="sum"><span>Planned</span><b>'+n+'</b></div><div class="sum"><span>Builders done</span><b style="font-size:16px">'+(bEnd>now?esc(whenD(bEnd)):"—")+'</b></div>'+
+    ["Gold","Elixir","Dark Elixir"].filter(r=>S.tot[r]).map(r=>'<div class="sum"><span>'+(r==="Dark Elixir"?"Dark elixir":r)+'</span><b class="'+resCls(r)+'">'+num(S.tot[r])+'</b></div>').join("")+
+    (S.thEnd>V.th?'<div class="sum"><span>Ends at</span><b>TH'+S.thEnd+'</b></div>':'')+'</div>';
+  if(warns)h+='<div class="alert crit"><span class="dot"></span><div><b>'+warns+' planned upgrade'+(warns>1?"s have a problem":" has a problem")+'</b> (marked in red below): a missing requirement or a level that starts before the one before it is done.</div></div>';
+  // chart
+  const rows=S.queues.map(q=>({id:q.id,type:q.extra?"x":q.type,label:q.label,bars:[...(q.headStep?[q.head].map(o=>({name:o.name,from:o.cur-1,to:o.cur,start:V.ts,end:o.fin,k:mpKind(o),running:true})):[]),
+    ...q.items.map((s,i)=>[s,i]).filter(([s])=>s.st).map(([s,i])=>({dq:q.id,di:i,name:s.o.name,from:s.to-1,to:s.to,start:s.start,end:s.end,cost:s.st.cost,res:s.st.res,k:mpKind(s.o),newb:s.o.cur===0&&s.to===1,warn:s.warn}))]}));
+  h+='<div><h3 style="margin:0">Timeline</h3><div class="gantt"></div></div>';
+  // queues
+  h+='<div class="mp-grid">';
+  for(const q of S.queues){
+    h+='<div class="q"><div class="q-h"><b>'+esc(q.label)+'</b><span class="sub">'+(q.items.length?q.items.length+" planned · done "+esc(whenD(q.end)):q.head?"free "+esc(whenD(q.end)):"free now")+'</span></div>';
+    if(q.head){const o=q.head;h+='<div class="qi run"><div class="nm"><b>'+esc(o.name)+'</b> '+mpLvl(o,o.cur)+'</div><div class="tm">'+(o.fin>now?dur((o.fin-now)/1000)+" left":"done?")+'</div><div class="dt">Upgrading now · done '+esc(whenD(o.fin))+'</div></div>'}
+    q.items.forEach((s,i)=>{const o=s.o;const qtype=q.type;
+      h+='<div class="qi'+(s.warn?" bad":"")+'"><div class="nm"><b>'+esc(o?o.name:s.it.o)+'</b> '+(o?mpLvl(o,s.to):"Lvl "+s.to)+'</div><div class="tm">'+(s.st?(s.st.cost?'<span class="'+resCls(s.st.res)+'">'+num(s.st.cost)+'</span> · ':'')+dur(s.st.time):"")+'</div>'+
+        (s.warn?'<div class="wn">'+esc(s.warn)+'</div>':'')+
+        '<div class="r2"><div class="dt">'+esc(whenD(s.start))+' → '+esc(whenD(s.end))+'</div><div class="ctl"><button class="ib" data-act="up" data-q="'+q.id+'" data-i="'+i+'" aria-label="Move up"'+(i?'':' disabled')+'>▲</button><button class="ib" data-act="down" data-q="'+q.id+'" data-i="'+i+'" aria-label="Move down"'+(i<q.items.length-1?'':' disabled')+'>▼</button>'+
+        (qtype==="b"?'<select class="mv" data-q="'+q.id+'" data-i="'+i+'" aria-label="Move to builder">'+S.queues.filter(x=>x.type==="b"&&!x.extra).map(x=>'<option value="'+x.id+'"'+(x.id===q.id?" selected":"")+'>'+esc(x.label)+'</option>').join("")+'</select>':'')+
+        '<button class="ib del" data-act="del" data-q="'+q.id+'" data-i="'+i+'" aria-label="Remove">✕</button></div></div></div>';});
+    if(!q.extra)h+='<button class="q-add" data-act="add" data-q="'+q.id+'">+ Add to '+esc(q.label)+'</button>';
+    h+='</div>';}
+  h+='</div>';
+  h+='<p class="sub">Times assume you start each upgrade the moment the one before it finishes, without potions, books or the Builder\'s Apprentice. When you paste a new export, upgrades it shows as done or started come off the list.</p>';
+  el.innerHTML=h;
+  const gEl=el.querySelector(".gantt");gEl._anchor=MP_ANCHOR;mountGantt(gEl,rows,"mp",{onMove:(fq,fi,tq,t)=>{
+    // drop at time t: goes before the first item in the target queue that starts at or after t
+    const it=MP.q[fq]&&MP.q[fq][fi];if(!it||tq[0]==="x")return renderMyPlan();
+    const start=new Map();for(const q of S.queues)for(const s of q.items)start.set(s.it,s.start);
+    MP.q[fq].splice(fi,1);const a=MP.q[tq]||(MP.q[tq]=[]);let k=a.findIndex(x=>start.get(x)>=t);if(k<0)k=a.length;a.splice(k,0,it);
+    MP_ANCHOR=gEl._anchor;mpSave();renderMyPlan();}});
+  gEl.querySelector(".tl-scroll").addEventListener("scroll",()=>{MP_ANCHOR=gEl._anchor},{passive:true});
+  el.querySelectorAll("select.mv").forEach(sel=>sel.onchange=()=>{const a=MP.q[sel.dataset.q];const [it]=a.splice(+sel.dataset.i,1);(MP.q[sel.value]||(MP.q[sel.value]=[])).push(it);mpSave();renderMyPlan()});
+  el.onclick=e=>{const b=e.target.closest("[data-act]");if(!b)return;const act=b.dataset.act,qid=b.dataset.q,i=+b.dataset.i;const a=MP.q[qid];
+    if(act==="add")return mpOpenSheet(qid);
+    if(act==="copy"||act==="clear"){MP_CONFIRM=act;return renderMyPlan()}
+    if(act==="no"){MP_CONFIRM=false;return renderMyPlan()}
+    if(act==="yes"){if(MP_CONFIRM==="copy")mpCopyRecommended();else MP={q:{},run:{}};MP_CONFIRM=false;mpSave();return renderMyPlan()}
+    if(act==="up"&&i>0)[a[i-1],a[i]]=[a[i],a[i-1]];
+    if(act==="down"&&i<a.length-1)[a[i+1],a[i]]=[a[i],a[i+1]];
+    if(act==="del")a.splice(i,1);
+    mpSave();renderMyPlan();};
+}
+
+// Turn the recommended plan's next 30 days into items (builders and Lab; the Pet House queue is kept).
+function mpCopyRecommended(){
+  const R=mpObjects(V);const lp=labPlan(V);const sim=simulateTimeline(V,lp.blocking,60);const lab=simulateLab(V,sim.events,60);
+  const horizon=Date.now()+30*DAY*1000;const lv={};for(const k in R.O)lv[k]=R.O[k].cur;
+  const q={};const bars=[];
+  sim.rows.forEach((r,i)=>{q["b"+(i+1)]=[];for(const b of r)if(!b.running&&b.start<horizon)bars.push([("b"+(i+1)),b])});
+  bars.sort((a,b)=>a[1].start-b[1].start);
+  for(const [qid,b] of bars){let key=null;
+    if(b.kind==="h")key="h:"+b.id;else if(b.id===ID.TH)key="th";
+    else{const o=(R.byId[b.id]||[]).find(o=>lv[o.key]===b.from);if(o)key=o.key}
+    if(!key||!R.O[key])continue;lv[key]=b.to;q[qid].push({o:key,to:b.to});}
+  q.lab=lab.filter(b=>!b.running&&b.start<horizon&&R.O["u:"+b.id]).map(b=>({o:"u:"+b.id,to:b.to}));
+  if(MP.q.pet)q.pet=MP.q.pet;
+  MP={q,run:{}};
+}
+
+// ---------- add-upgrade sheet ----------
+let SHEET={q:"auto",cat:"",find:""};
+function mpTarget(qid){
+  if(qid!=="auto")return qid;
+  const S=mpSchedule(V,mpObjects(V));const b=S.queues.filter(q=>q.type==="b"&&!q.extra).sort((a,b)=>a.end-b.end)[0];return b?b.id:"b1";
+}
+function mpOpenSheet(qid){
+  SHEET.q=qid;SHEET.cat="";SHEET.find="";
+  let sh=document.getElementById("sheet");
+  if(!sh){sh=document.createElement("div");sh.id="sheet";sh.className="sheet";document.body.appendChild(sh);
+    sh.onclick=e=>{if(e.target===sh)return mpCloseSheet();const b=e.target.closest("[data-sa]");if(!b)return;const sa=b.dataset.sa;
+      if(sa==="close")return mpCloseSheet();
+      if(sa==="cat"){SHEET.cat=b.dataset.c;return mpSheetList()}
+      if(sa==="add"||sa==="max"){const R=mpObjects(V);const o=R.O[b.dataset.o];if(!o)return;const qid=mpTarget(SHEET.q);
+        const cap=mpCap(o,Math.max(mpPlannedTH(V),V.th));let to=mpNext(o);const last=sa==="max"?cap:to;let added=0;
+        const a=MP.q[qid]||(MP.q[qid]=[]);for(;to<=last&&to<=o.max;to++){a.push({o:o.key,to});added++}
+        mpSave();renderMyPlan();mpSheetList();
+        const ql=mpQueues(V).find(q=>q.id===qid);
+        document.getElementById("sheetMsg").textContent=added?"Added "+o.name+(added>1?" up to Lvl "+last:" Lvl "+last)+" to "+(ql?ql.label:qid)+".":"";}};
+    sh.addEventListener("input",e=>{if(e.target.id==="sheetFind"){SHEET.find=e.target.value;mpSheetList()}});
+    sh.addEventListener("change",e=>{if(e.target.id==="sheetQ"){SHEET.q=e.target.value;SHEET.cat="";mpSheetList()}});
+    document.addEventListener("keydown",e=>{if(e.key==="Escape"&&!sh.hidden)mpCloseSheet()});}
+  const qs=mpQueues(V);
+  sh.innerHTML='<div class="panel" role="dialog" aria-modal="true" aria-label="Add upgrades"><div class="sh-h"><h2 style="margin:0">Add upgrades</h2><button class="ib" data-sa="close" aria-label="Close">✕</button></div>'+
+    '<div class="sh-f"><label class="field" style="gap:8px"><span class="sub">Add to</span><select id="sheetQ"><option value="auto">First free builder</option>'+qs.map(q=>'<option value="'+q.id+'"'+(q.id===qid?" selected":"")+'>'+esc(q.label)+'</option>').join("")+'</select></label>'+
+    '<input id="sheetFind" type="search" placeholder="Search" autocomplete="off"></div><div class="picks" id="sheetCats"></div><div class="sh-list" id="sheetList"></div><p class="msg ok" id="sheetMsg" role="status"></p></div>';
+  sh.hidden=false;document.body.style.overflow="hidden";mpSheetList();
+}
+function mpCloseSheet(){const sh=document.getElementById("sheet");if(sh)sh.hidden=true;document.body.style.overflow=""}
+const CAT_ORDER=["Heroes","Town Hall","Army","Resources","Defenses","Traps","Builder huts","Other","Troops","Spells","Sieges","Pets"];
+function mpSheetList(){
+  const R=mpObjects(V);const th=Math.max(mpPlannedTH(V),V.th);
+  const type=SHEET.q==="auto"||SHEET.q[0]==="b"?"b":SHEET.q;const f=SHEET.find.trim().toLowerCase();
+  const avail=Object.values(R.O).filter(o=>o.q===type).map(o=>({o,next:mpNext(o),cap:mpCap(o,th)})).filter(x=>x.next<=x.cap&&x.next<=x.o.max);
+  const cats=CAT_ORDER.filter(c=>avail.some(x=>x.o.cat===c));
+  if(SHEET.cat&&!cats.includes(SHEET.cat))SHEET.cat="";
+  document.getElementById("sheetCats").innerHTML=['<button class="pick" data-sa="cat" data-c="" aria-pressed="'+!SHEET.cat+'">All</button>',...cats.map(c=>'<button class="pick" data-sa="cat" data-c="'+c+'" aria-pressed="'+(SHEET.cat===c)+'">'+c+'</button>')].join("");
+  const list=avail.filter(x=>(!SHEET.cat||x.o.cat===SHEET.cat)&&(!f||x.o.name.toLowerCase().includes(f)))
+    .sort((a,b)=>CAT_ORDER.indexOf(a.o.cat)-CAT_ORDER.indexOf(b.o.cat)||(a.o.cat==="Heroes"?0:a.o.name.localeCompare(b.o.name,undefined,{numeric:true})));
+  let h="",cat="";
+  for(const x of list){const o=x.o;const st=mpStep(o,x.next);
+    if(o.cat!==cat){cat=o.cat;h+='<h3>'+esc(cat)+'</h3>'}
+    const planned=x.next-1-o.cur;
+    h+='<div class="sh-row"><div><b>'+esc(o.name)+'</b> '+mpLvl(o,x.next)+(planned?' <span class="chip">'+planned+' planned</span>':'')+
+      '<div class="sub">'+(st&&st.cost?'<span class="'+resCls(st.res)+'">'+num(st.cost)+'</span> · ':'')+(st?dur(st.time):"")+' · now '+o.cur+', max '+x.cap+(x.cap>bCapNow(o)?' at TH'+th:'')+'</div></div>'+
+      '<div class="ctl">'+(x.cap>x.next?'<button class="btn" data-sa="max" data-o="'+o.key+'">To '+x.cap+'</button>':'')+'<button class="btn primary" data-sa="add" data-o="'+o.key+'" aria-label="Add '+esc(o.name)+' level '+x.next+'">+</button></div></div>';}
+  document.getElementById("sheetList").innerHTML=h||'<p class="sub" style="padding:12px">Nothing left to add here'+(SHEET.find?" for that search":"")+'.</p>';
+}
+const bCapNow=o=>mpCap(o,V.th);
+
 
 // ---------- render ----------
 let V=null;
@@ -746,17 +1093,17 @@ function syncWidget(){
   try{RushPlannerAndroid.setTimers(JSON.stringify({saved:!!store.get("village",null),tag:V.tag,ts:V.ts,jobs}))}catch(e){}
 }
 
-function renderAll(keepImport){syncWidget();headerMeta();renderPlan();renderTimeline();renderLab();renderHeroes();renderTracker();renderGuide();if(!keepImport)renderImport();else{
+function renderAll(keepImport){syncWidget();headerMeta();renderPlan();renderTimeline();renderMyPlan();renderLab();renderHeroes();renderTracker();renderGuide();if(!keepImport)renderImport();else{
   // refresh pick states without wiping the paste box
   document.querySelectorAll(".pick").forEach(b=>b.setAttribute("aria-pressed",SET[b.dataset.k].includes(+b.dataset.id)))}}
 
 // tabs
 function show(v){document.querySelectorAll("#tabs button").forEach(b=>b.setAttribute("aria-selected",b.dataset.v===v));
-  document.querySelectorAll("section.view").forEach(s=>s.hidden=s.id!=="v-"+v);document.querySelector(".wrap").classList.toggle("wide",v==="timeline");store.set("tab",v)}
+  document.querySelectorAll("section.view").forEach(s=>s.hidden=s.id!=="v-"+v);document.querySelector(".wrap").classList.toggle("wide",v==="timeline"||v==="myplan");store.set("tab",v);document.querySelectorAll("#v-"+v+" .gantt").forEach(g=>g._refresh&&g._refresh())}
 document.getElementById("tabs").onclick=e=>{const b=e.target.closest("button");if(b)show(b.dataset.v)};
 
 load();renderAll();
-const initTab=(location.hash||"").slice(1);show(["plan","timeline","lab","heroes","tracker","guide","import"].includes(initTab)?initTab:store.get("tab","plan"));
+const initTab=(location.hash||"").slice(1);show(["plan","timeline","myplan","lab","heroes","tracker","guide","import"].includes(initTab)?initTab:store.get("tab","plan"));
 setInterval(()=>{headerMeta();renderPlan()},60000);
 </script>
 
