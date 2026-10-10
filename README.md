@@ -5,6 +5,8 @@ A single-page Clash of Clans tracker that ranks your next builder, lab, hero and
 Paste your in-game data export (Settings → More Settings → Data Export → Copy) on the **Update** tab. The page then shows:
 
 - **Plan**: what each builder is doing, what to start when it frees up, the checklist for the next Town Hall, and every open upgrade ranked by the guide.
+- **Timeline**: the recommended plan as a builder-by-builder chart.
+- **My Plan**: your own hand-assigned queues, like clash.ninja's planner. Every upgrade level is its own item: add it to a builder, the Lab or the Pet House, reorder it, move it to another builder or remove it. Each queue starts after its current upgrade, the chart and finish times follow your order, and items that need a higher Town Hall, Hero Hall, Lab or Pet House by then (or start before their previous level is done) are marked in red. "Copy recommended plan" fills the builder and Lab queues with the next 30 days of the recommended plan as a starting point. A fresh export removes items it shows as done or started. Saved on the device.
 - **Lab & Pets**: research order with your farming army first, plus pet tiers from TH14.
 - **Heroes & Gear**: hero levels against Hero Hall limits, and equipment ranked by "max one main piece per hero".
 - **Tracker**: progress against your Town Hall's max levels.
