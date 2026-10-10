@@ -1101,7 +1101,6 @@ function renderImport(){
   const troopIds=Object.keys(V.units).map(Number).filter(id=>GD.U[id]&&GD.U[id].pb!=="Workshop");
   const spellIds=Object.keys(V.units).map(Number).filter(id=>GD.SP[id]);
   const pick=(ids,key)=>'<div class="picks">'+ids.map(id=>'<button class="pick" data-k="'+key+'" data-id="'+id+'" aria-pressed="'+SET[key].includes(id)+'">'+esc(uDef(id).n)+'</button>').join("")+'</div>';
-  const isSample=VIL.active===SAMPLE.tag&&!store.get("vd:"+SAMPLE.tag,null);
   const vrows=VIL.list.map(r=>{const d=vilData(r.tag),on=r.tag===VIL.active;
     const age=d&&d.timestamp?dur(Date.now()/1000-d.timestamp)+" ago":"no export yet";
     return '<div class="vrow'+(on?" on":"")+'" data-tag="'+esc(r.tag)+'"><b class="vtag">'+esc(r.tag)+'</b>'+
@@ -1110,7 +1109,7 @@ function renderImport(){
       '<div class="vinfo">'+(r.th?"TH"+r.th+" · ":"")+"data from "+age+'</div></div>'}).join("");
   el.innerHTML='<div><h2>Update your village</h2><p class="sub" style="margin-bottom:8px">In Clash: Settings → More Settings → Data Export → Copy. Paste it here. It\'s saved in this browser only.</p>'+
   '<textarea id="paste" placeholder=\'{"tag":"#...","timestamp":...,"buildings":[...]}\'></textarea>'+
-  '<div class="btns" style="margin-top:8px"><button class="btn primary" id="loadBtn">Load export</button>'+(VIL.active===SAMPLE.tag&&!isSample?'<button class="btn" id="resetBtn">Use the 8 Oct export</button>':'')+'</div><p class="msg" id="msg" role="status" style="margin-top:6px"></p></div>'+
+  '<div class="btns" style="margin-top:8px"><button class="btn primary" id="loadBtn">Load export</button>'+'</div><p class="msg" id="msg" role="status" style="margin-top:6px"></p></div>'+
   (VIL.list.length>1?'<div><h2>Your villages</h2><div class="vlist">'+vrows+'</div></div>':'')+
   '<div><h2>Farming army</h2><p class="sub" style="margin-bottom:8px">These go to the top of the Lab list, in the order you pick them. Sneaky Goblins upgrade through the Goblin.</p><h3>Troops</h3>'+pick(troopIds,"farm")+'<h3 style="margin-top:10px">Spells</h3>'+pick(spellIds,"spells")+'</div>'+
   '<div><h2>Builder plan</h2><p class="sub" style="margin-bottom:8px">What has to be done before each Town Hall.</p><div class="seg" role="group" aria-label="Builder plan"><button class="style" data-s="5d" aria-pressed="'+(SET.style!=="tee")+'">5D plan (TH13 to 16)</button><button class="style" data-s="tee" aria-pressed="'+(SET.style==="tee")+'">Tee checklist only</button></div></div>'+
@@ -1124,7 +1123,6 @@ function renderImport(){
       store.set("vd:"+tag,j);r.th=v.th;vilSave();switchVillage(tag);
       msg((added?"New village added: ":"Updated ")+vilName(r)+" (TH"+v.th+")."+" The plan is updated.",true)}
     catch(e){msg(e instanceof SyntaxError?"That text isn't valid JSON. Copy the export again and paste the whole thing.":e.message,false)}};
-  const rb=document.getElementById("resetBtn");if(rb)rb.onclick=()=>{store.del("vd:"+SAMPLE.tag);load();renderAll();msg("Back to the 8 Oct export.",true)};
   el.querySelectorAll(".vrow").forEach(row=>{const tag=row.dataset.tag,r=vilRec(tag);
     const ob=row.querySelector('[data-va="open"]');if(ob)ob.onclick=()=>switchVillage(tag);
     const db=row.querySelector('[data-va="del"]');if(db)db.onclick=()=>{
