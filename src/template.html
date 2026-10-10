@@ -117,7 +117,7 @@ textarea{width:100%;min-height:150px;font:12px/1.4 ui-monospace,SFMono-Regular,M
 .vlist{display:flex;flex-direction:column;gap:8px;margin-bottom:8px}
 .vrow{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px 12px;display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px}
 .vrow.on{border-color:var(--gold);box-shadow:inset 3px 0 0 var(--gold)}
-.vrow .vname{flex:1 1 160px;min-width:0;font:inherit;font-weight:700;padding:6px 8px;border-radius:8px;border:1px solid var(--line);background:var(--sunk);color:var(--ink)}
+.vrow .vtag{flex:1 1 auto;min-width:0}
 .vrow .vinfo{flex:1 1 100%;order:3;color:var(--muted);font-size:13px}
 .vrow .btn{padding:6px 12px}
 .vrow .btn.arm{background:var(--crit);border-color:var(--crit);color:var(--surface)}
@@ -320,7 +320,7 @@ if(!VIL||!Array.isArray(VIL.list)||!VIL.list.length){
 if(!VIL.list.some(r=>r.tag===VIL.active))VIL.active=VIL.list[0].tag;
 const vilSave=()=>store.set("villages",VIL);
 const vilRec=tag=>VIL.list.find(r=>r.tag===tag);
-const vilName=r=>r.name||r.tag||"Village";
+const vilName=r=>r.tag||"Village";
 const vget=(k,d)=>store.get(k+":"+VIL.active,d);
 const vset=(k,v)=>store.set(k+":"+VIL.active,v);
 const vilData=tag=>store.get("vd:"+tag,null)||(tag===SAMPLE.tag?SAMPLE:null);
@@ -924,8 +924,7 @@ document.getElementById("vsel").onchange=e=>switchVillage(e.target.value);
 function headerMeta(){
   document.getElementById("thBadge").textContent="TH"+V.th;
   const age=(Date.now()-V.ts)/1000;
-  const r=vilRec(VIL.active);
-  document.getElementById("meta").innerHTML=(r&&r.name&&VIL.list.length<2?esc(r.name)+" · ":"")+esc(V.tag)+" · data from "+(age<60?"just now":dur(age)+" ago")+" · home village";
+  document.getElementById("meta").innerHTML=esc(V.tag)+" · data from "+(age<60?"just now":dur(age)+" ago")+" · home village";
 }
 
 function chip(c){
@@ -1105,14 +1104,14 @@ function renderImport(){
   const isSample=VIL.active===SAMPLE.tag&&!store.get("vd:"+SAMPLE.tag,null);
   const vrows=VIL.list.map(r=>{const d=vilData(r.tag),on=r.tag===VIL.active;
     const age=d&&d.timestamp?dur(Date.now()/1000-d.timestamp)+" ago":"no export yet";
-    return '<div class="vrow'+(on?" on":"")+'" data-tag="'+esc(r.tag)+'"><input class="vname" value="'+esc(r.name||"")+'" placeholder="'+esc(r.tag)+'" aria-label="Name for '+esc(r.tag)+'" maxlength="40">'+
+    return '<div class="vrow'+(on?" on":"")+'" data-tag="'+esc(r.tag)+'"><b class="vtag">'+esc(r.tag)+'</b>'+
       (on?'<span class="chip t1">Open</span>':'<button class="btn" data-va="open">Open</button>')+
       (VIL.list.length>1?'<button class="btn" data-va="del">Remove</button>':'')+
-      '<div class="vinfo">'+esc(r.tag)+(r.th?" · TH"+r.th:"")+" · data from "+age+'</div></div>'}).join("");
-  el.innerHTML='<div><h2>Villages</h2><p class="sub" style="margin-bottom:8px">Each village has its own plan, My Plan queues and settings. Paste an export from another account below to add it. Name a village by typing in its box.</p><div class="vlist">'+vrows+'</div></div>'+
-  '<div><h2>Update or add a village</h2><p class="sub" style="margin-bottom:8px">In Clash: Settings → More Settings → Data Export → Copy. Paste it here. An export for a village you already have updates it; a new player tag adds a village. It\'s saved in this browser only.</p>'+
+      '<div class="vinfo">'+(r.th?"TH"+r.th+" · ":"")+"data from "+age+'</div></div>'}).join("");
+  el.innerHTML='<div><h2>Update your village</h2><p class="sub" style="margin-bottom:8px">In Clash: Settings → More Settings → Data Export → Copy. Paste it here. It\'s saved in this browser only.</p>'+
   '<textarea id="paste" placeholder=\'{"tag":"#...","timestamp":...,"buildings":[...]}\'></textarea>'+
   '<div class="btns" style="margin-top:8px"><button class="btn primary" id="loadBtn">Load export</button>'+(VIL.active===SAMPLE.tag&&!isSample?'<button class="btn" id="resetBtn">Use the 8 Oct export</button>':'')+'</div><p class="msg" id="msg" role="status" style="margin-top:6px"></p></div>'+
+  (VIL.list.length>1?'<div><h2>Your villages</h2><div class="vlist">'+vrows+'</div></div>':'')+
   '<div><h2>Farming army</h2><p class="sub" style="margin-bottom:8px">These go to the top of the Lab list, in the order you pick them. Sneaky Goblins upgrade through the Goblin.</p><h3>Troops</h3>'+pick(troopIds,"farm")+'<h3 style="margin-top:10px">Spells</h3>'+pick(spellIds,"spells")+'</div>'+
   '<div><h2>Builder plan</h2><p class="sub" style="margin-bottom:8px">What has to be done before each Town Hall.</p><div class="seg" role="group" aria-label="Builder plan"><button class="style" data-s="5d" aria-pressed="'+(SET.style!=="tee")+'">5D plan (TH13 to 16)</button><button class="style" data-s="tee" aria-pressed="'+(SET.style==="tee")+'">Tee checklist only</button></div></div>'+
   '<div><h2>Builders</h2><div class="field"><label for="bcount">Number of builders</label><input id="bcount" type="number" min="1" max="7" value="'+(SET.builders||builderCount(V))+'"><span class="sub">Read from your export: '+builderCount(V)+'</span></div></div>';
@@ -1121,11 +1120,10 @@ function renderImport(){
     try{const j=JSON.parse(t);const v=parseVillage(j);const tag=v.tag||"#?";let r=vilRec(tag);const added=!r;
       if(added){r={tag,name:"",th:v.th};VIL.list.push(r)}
       store.set("vd:"+tag,j);r.th=v.th;vilSave();switchVillage(tag);
-      msg((added?"Added a new village, ":"Updated ")+vilName(r)+" (TH"+v.th+")."+(added?" You can name it above.":" The plan is updated."),true)}
+      msg((added?"New village added: ":"Updated ")+vilName(r)+" (TH"+v.th+")."+" The plan is updated.",true)}
     catch(e){msg(e instanceof SyntaxError?"That text isn't valid JSON. Copy the export again and paste the whole thing.":e.message,false)}};
   const rb=document.getElementById("resetBtn");if(rb)rb.onclick=()=>{store.del("vd:"+SAMPLE.tag);load();renderAll();msg("Back to the 8 Oct export.",true)};
   el.querySelectorAll(".vrow").forEach(row=>{const tag=row.dataset.tag,r=vilRec(tag);
-    row.querySelector(".vname").onchange=e=>{r.name=e.target.value.trim().slice(0,40);vilSave();headerMeta();renderVillageSelect();syncWidget()};
     const ob=row.querySelector('[data-va="open"]');if(ob)ob.onclick=()=>switchVillage(tag);
     const db=row.querySelector('[data-va="del"]');if(db)db.onclick=()=>{
       // Two taps, so a stray tap can't wipe a village.
