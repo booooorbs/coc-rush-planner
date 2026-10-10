@@ -12,7 +12,7 @@ import org.json.JSONObject;
 import java.util.ArrayList;
 import java.util.List;
 
-/** Supplies the widget's scrollable list of timers. */
+/** Supplies the widget's scrollable list of timers, under a heading per village once there are several. */
 public class TimersWidgetService extends RemoteViewsService {
     @Override
     public RemoteViewsFactory onGetViewFactory(Intent intent) {
@@ -21,6 +21,7 @@ public class TimersWidgetService extends RemoteViewsService {
 
     private static class Factory implements RemoteViewsFactory {
         private final Context context;
+        // Timers, and village headings marked with "header": true.
         private final List<JSONObject> jobs = new ArrayList<>();
         private long now;
 
@@ -33,7 +34,30 @@ public class TimersWidgetService extends RemoteViewsService {
             jobs.clear();
             now = System.currentTimeMillis();
             JSONObject data = TimersWidget.data(context);
-            JSONArray list = data == null ? null : data.optJSONArray("jobs");
+            if (data == null) return;
+            // Pages from before villages were grouped send only the flat list.
+            JSONArray groups = data.optJSONArray("groups");
+            // With one village there's nothing to group: no heading.
+            if (groups == null || groups.length() < 2) {
+                addJobs(data.optJSONArray("jobs"));
+                return;
+            }
+            for (int k = 0; k < groups.length(); k++) {
+                JSONObject group = groups.optJSONObject(k);
+                if (group == null) continue;
+                JSONArray list = group.optJSONArray("jobs");
+                try {
+                    jobs.add(new JSONObject()
+                            .put("header", true)
+                            .put("name", group.optString("name"))
+                            .put("empty", list == null || list.length() == 0));
+                } catch (Exception ignored) {
+                }
+                addJobs(list);
+            }
+        }
+
+        private void addJobs(JSONArray list) {
             for (int k = 0; list != null && k < list.length(); k++) {
                 JSONObject job = list.optJSONObject(k);
                 if (job != null) jobs.add(job);
@@ -42,9 +66,16 @@ public class TimersWidgetService extends RemoteViewsService {
 
         @Override
         public RemoteViews getViewAt(int position) {
+            JSONObject job = position < jobs.size() ? jobs.get(position) : null;
+            if (job != null && job.optBoolean("header")) {
+                RemoteViews head = new RemoteViews(context.getPackageName(), R.layout.widget_header);
+                head.setTextViewText(R.id.village, job.optString("name"));
+                head.setTextViewText(R.id.note,
+                        job.optBoolean("empty") ? context.getString(R.string.widget_village_idle) : "");
+                return head;
+            }
             RemoteViews row = new RemoteViews(context.getPackageName(), R.layout.widget_row);
-            if (position >= jobs.size()) return row;
-            JSONObject job = jobs.get(position);
+            if (job == null) return row;
             long finish = job.optLong("finish");
             row.setTextViewText(R.id.name, job.optString("name"));
             row.setTextViewText(R.id.kind, job.optString("kind"));
@@ -83,7 +114,7 @@ public class TimersWidgetService extends RemoteViewsService {
 
         @Override
         public int getViewTypeCount() {
-            return 1;
+            return 2;
         }
 
         @Override

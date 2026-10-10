@@ -165,6 +165,8 @@ textarea{width:100%;min-height:150px;font:12px/1.4 ui-monospace,SFMono-Regular,M
 .vrow{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px 12px;display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px}
 .vrow.on{border-color:var(--gold);box-shadow:inset 3px 0 0 var(--gold)}
 .vrow .vtag{flex:1 1 auto;min-width:0}
+.vrow .vtag small{color:var(--muted);font-weight:400;margin-left:6px}
+.vrow .vname{flex:1 1 100%;order:4;font:inherit;font-size:14px;padding:6px 8px;border-radius:8px;border:1px solid var(--line);background:var(--surface);color:var(--ink)}
 .vrow .vinfo{flex:1 1 100%;order:3;color:var(--muted);font-size:13px}
 .vrow .btn{padding:6px 12px}
 .vrow .btn.arm{background:var(--crit);border-color:var(--crit);color:var(--surface)}
@@ -370,7 +372,10 @@ if(!VIL.list.some(r=>r.tag===VIL.active))VIL.active=VIL.list.length?VIL.list[0].
 store.set("villages",VIL);
 const vilSave=()=>store.set("villages",VIL);
 const vilRec=tag=>VIL.list.find(r=>r.tag===tag);
-const vilName=r=>r.tag||"Village";
+// The Data Export has no player or village name today; use one if a future export adds it,
+// else the name typed on the Update tab, else the tag.
+const exportName=j=>{if(j)for(const k of ["name","player_name","playerName","village_name","villageName"])if(typeof j[k]==="string"&&j[k].trim())return j[k].trim();return ""};
+const vilName=r=>exportName(store.get("vd:"+r.tag,null))||r.name||r.tag||"Village";
 const vget=(k,d)=>store.get(k+":"+VIL.active,d);
 const vset=(k,v)=>store.set(k+":"+VIL.active,v);
 const vilData=tag=>store.get("vd:"+tag,null);
@@ -1156,10 +1161,12 @@ function renderImport(){
   const pick=(ids,key)=>'<div class="picks">'+ids.map(id=>'<button class="pick" data-k="'+key+'" data-id="'+id+'" aria-pressed="'+SET[key].includes(id)+'">'+esc(uDef(id).n)+'</button>').join("")+'</div>';
   const vrows=VIL.list.map(r=>{const d=vilData(r.tag),on=r.tag===VIL.active;
     const age=d&&d.timestamp?dur(Date.now()/1000-d.timestamp)+" ago":"no export yet";
-    return '<div class="vrow'+(on?" on":"")+'" data-tag="'+esc(r.tag)+'"><b class="vtag">'+esc(r.tag)+'</b>'+
+    const named=vilName(r)!==r.tag;
+    return '<div class="vrow'+(on?" on":"")+'" data-tag="'+esc(r.tag)+'"><b class="vtag">'+esc(vilName(r))+(named?'<small>'+esc(r.tag)+'</small>':'')+'</b>'+
       (on?'<span class="chip t1">Open</span>':'<button class="btn" data-va="open">Open</button>')+
       (VIL.list.length>1?'<button class="btn" data-va="del">Remove</button>':'')+
-      '<div class="vinfo">'+(r.th?"TH"+r.th+" · ":"")+"data from "+age+'</div></div>'}).join("");
+      '<div class="vinfo">'+(r.th?"TH"+r.th+" · ":"")+"data from "+age+'</div>'+
+      (exportName(d)?'':'<input class="vname" data-va="name" maxlength="30" placeholder="Name this village (optional)" aria-label="Name for '+esc(r.tag)+'" value="'+esc(r.name||"")+'">')+'</div>'}).join("");
   el.innerHTML=welcome+'<div><h2>'+(V?"Update your village":"Add your village")+'</h2><p class="sub" style="margin-bottom:8px">In Clash: Settings → More Settings → Data Export → Copy. Paste it here. '+(window.RushPlannerAndroid?"It\'s saved in this app on this phone only.":"It\'s saved in this browser only.")+'</p>'+
   '<textarea id="paste" placeholder=\'{"tag":"#...","timestamp":...,"buildings":[...]}\'></textarea>'+
   '<div class="btns" style="margin-top:8px"><button class="btn primary" id="loadBtn">Load export</button>'+'</div><p class="msg" id="msg" role="status" style="margin-top:6px"></p></div>'+
@@ -1177,6 +1184,8 @@ function renderImport(){
       msg((added?"New village added: ":"Updated ")+vilName(r)+" (TH"+v.th+")."+" The plan is updated.",true)}
     catch(e){msg(e instanceof SyntaxError?"That text isn't valid JSON. Copy the export again and paste the whole thing.":e.message,false)}};
   el.querySelectorAll(".vrow").forEach(row=>{const tag=row.dataset.tag,r=vilRec(tag);
+    const nb=row.querySelector('[data-va="name"]');if(nb)nb.onchange=()=>{r.name=nb.value.trim();vilSave();renderVillageSelect();syncWidget();
+      const t=row.querySelector(".vtag");t.innerHTML=esc(vilName(r))+(vilName(r)!==r.tag?'<small>'+esc(r.tag)+'</small>':'')};
     const ob=row.querySelector('[data-va="open"]');if(ob)ob.onclick=()=>switchVillage(tag);
     const db=row.querySelector('[data-va="del"]');if(db)db.onclick=()=>{
       // Two taps, so a stray tap can't wipe a village.
@@ -1193,17 +1202,21 @@ function renderImport(){
 function appUpdates(){return !!window.RushPlannerAndroid&&typeof RushPlannerAndroid.checkForUpdates==="function"}
 
 // Android app only: hand the running timers to the home-screen widget.
-// Every village with a saved export is listed; names get the village's name in front once there are several.
+// groups: one entry per village with a saved export, in the switcher's order, for app builds that
+// show a heading per village. jobs: the same timers in one list, names prefixed with the village
+// once there are several, for older app builds.
 function syncWidget(){
   if(!window.RushPlannerAndroid)return;
   const vs=[];for(const r of VIL.list){const j=store.get("vd:"+r.tag,null);if(!j)continue;try{vs.push([r,parseVillage(j)])}catch(e){}}
-  const jobs=[];let ts=0;
-  for(const [r,v] of vs){const pre=vs.length>1?vilName(r)+": ":"";ts=Math.max(ts,v.ts);
-    for(const j of busyJobs(v))jobs.push({kind:j.kind==="h"?"Hero":"Builder",name:pre+j.name+" "+(j.from+1),finish:j.finish});
-    for(const id in v.units){const u=v.units[id];if(u.timer)jobs.push({kind:"Lab",name:pre+(uDef(id).n||"Research")+" "+(u.lvl+1),finish:v.ts+u.timer*1000})}
-    for(const id in v.pets){const p=v.pets[id];if(p.timer)jobs.push({kind:"Pet",name:pre+((GD.P[id]||{}).n||"Pet")+" "+(p.lvl+1),finish:v.ts+p.timer*1000})}}
-  jobs.sort((a,b)=>a.finish-b.finish);
-  try{RushPlannerAndroid.setTimers(JSON.stringify({saved:vs.length>0,tag:V?V.tag:"",ts:ts||(V?V.ts:0),jobs}))}catch(e){}
+  const groups=[],jobs=[];let ts=0;const byFinish=(a,b)=>a.finish-b.finish;
+  for(const [r,v] of vs){ts=Math.max(ts,v.ts);const g=[];
+    for(const j of busyJobs(v))g.push({kind:j.kind==="h"?"Hero":"Builder",name:j.name+" "+(j.from+1),finish:j.finish});
+    for(const id in v.units){const u=v.units[id];if(u.timer)g.push({kind:"Lab",name:(uDef(id).n||"Research")+" "+(u.lvl+1),finish:v.ts+u.timer*1000})}
+    for(const id in v.pets){const p=v.pets[id];if(p.timer)g.push({kind:"Pet",name:((GD.P[id]||{}).n||"Pet")+" "+(p.lvl+1),finish:v.ts+p.timer*1000})}
+    g.sort(byFinish);groups.push({name:vilName(r),tag:r.tag,th:v.th,jobs:g});
+    const pre=vs.length>1?vilName(r)+": ":"";for(const x of g)jobs.push(Object.assign({},x,{name:pre+x.name}))}
+  jobs.sort(byFinish);
+  try{RushPlannerAndroid.setTimers(JSON.stringify({saved:vs.length>0,tag:V?V.tag:"",ts:ts||(V?V.ts:0),jobs,groups}))}catch(e){}
 }
 
 function renderAll(keepImport){
