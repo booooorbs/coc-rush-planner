@@ -143,6 +143,10 @@ textarea{width:100%;min-height:150px;font:12px/1.4 ui-monospace,SFMono-Regular,M
 .tl-scroll{cursor:grab;touch-action:pan-x pan-y;-webkit-overflow-scrolling:touch;overscroll-behavior-x:contain}
 /* keep a bar's name in view when the bar starts left of the visible area (clip, not hidden, so sticky works) */
 .tl-bar b,.tl-bar span{position:sticky;left:6px;max-width:max-content}
+.tl-bar.mv{cursor:grab;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+.tl-bar.dragging{z-index:6;opacity:.9;box-shadow:0 6px 18px rgba(0,0,0,.28);cursor:grabbing;pointer-events:none}
+.tl-scroll.moving{cursor:grabbing}
+.tl-row.drop{background:var(--gold-soft)}
 .tl-scroll.grab{cursor:grabbing;user-select:none}
 .tl-now{position:absolute;top:0;bottom:0;width:2px;background:var(--crit);z-index:3;pointer-events:none}
 .tl-bar{position:absolute;top:6px;height:44px;border-radius:7px;padding:4px 8px;overflow:clip;white-space:nowrap;font-size:12px;line-height:1.3;border:1px solid transparent;box-sizing:border-box;z-index:2}
@@ -547,7 +551,8 @@ function simulateLab(v,events,days){
 // Gantt chart shared by the Timeline and My Plan tabs. rows: [{label,bars:[{name,from,to,start,end,cost,res,k,running,newb,warn}]}]
 // Scrolls sideways (swipe, drag, shift+wheel) and zooms (buttons, pinch, ctrl+wheel); zoom is px per day, saved per chart.
 const PX_MIN=8,PX_MAX=2400;
-function mountGantt(host,rows,key){
+// opts.onMove(queueId,index,toRowId,time): makes bars that carry dq/di draggable onto rows of the same r.type.
+function mountGantt(host,rows,key,opts){opts=opts||{};
   const st={px:store.get("zoom:"+key,110),anchor:host._anchor};
   const now=Date.now();const d0=new Date(now);d0.setHours(0,0,0,0);const t0=d0.getTime();
   const lastEnd=Math.max(now,...rows.flatMap(r=>r.bars.map(b=>b.end)));
@@ -567,8 +572,8 @@ function mountGantt(host,rows,key){
     const bar=b=>{const l=Math.max(0,x(b.start)),r=Math.min(width,x(b.end));if(r<=0||l>=width||r-l<2)return "";
       const lvl=b.newb?"new":b.from+" → "+b.to;
       const cost=b.cost?' · <em class="'+resCls(b.res)+'" style="font-style:normal">'+num(b.cost)+'</em>':"";
-      const tip=b.name+" "+lvl+" · "+(b.running?"in progress, done ":"start "+when(b.start)+", done ")+when(b.end)+(b.warn?" · "+b.warn:"");
-      return '<div class="tl-bar k-'+b.k+(b.running?" now-running":"")+(b.warn?" warn":"")+'" style="left:'+l+'px;width:'+(r-l-2)+'px" title="'+esc(tip)+'"><b>'+esc(b.name)+' '+lvl+'</b><span>'+(b.running?"done in "+dur((b.end-now)/1000):dur((b.end-b.start)/1000))+cost+'</span></div>'};
+      const tip=b.name+" "+lvl+" · "+(b.running?"in progress, done ":"start "+when(b.start)+", done ")+when(b.end)+(b.warn?" · "+b.warn:"")+(b.dq&&opts.onMove?" · drag to move (press and hold on touch)":"");
+      return '<div class="tl-bar k-'+b.k+(b.running?" now-running":"")+(b.warn?" warn":"")+(b.dq&&opts.onMove?" mv":"")+'"'+(b.dq&&opts.onMove?' data-q="'+b.dq+'" data-i="'+b.di+'"':'')+' style="left:'+l+'px;width:'+(r-l-2)+'px" title="'+esc(tip)+'"><b>'+esc(b.name)+' '+lvl+'</b><span>'+(b.running?"done in "+dur((b.end-now)/1000):dur((b.end-b.start)/1000))+cost+'</span></div>'};
     cv.style.width=width+"px";
     cv.innerHTML='<div class="tl-axis">'+ax+'</div>'+grid+rows.map(r=>'<div class="tl-row">'+r.bars.map(bar).join("")+'</div>').join("")+'<div class="tl-now" style="left:'+x(now)+'px"></div>';};
   const tAt=cx=>t0+(sc.scrollLeft+cx)/st.px*DAY*1000;
@@ -585,7 +590,7 @@ function mountGantt(host,rows,key){
   // two-finger pinch zooms; one finger scrolls natively. Redrawing removes the touched element from the page,
   // and a removed element's touch events no longer reach the chart, so listen on the touched element itself.
   let pinch=null;
-  const onMove=e=>{if(!pinch||e.touches.length!==2)return;e.preventDefault();const [a,b]=e.touches;const d=Math.hypot(a.clientX-b.clientX,a.clientY-b.clientY);
+  const onMove=e=>{if(!pinch||mv||e.touches.length!==2)return;e.preventDefault();const [a,b]=e.touches;const d=Math.hypot(a.clientX-b.clientX,a.clientY-b.clientY);
     pinch.target=pinch.px*d/pinch.d;if(!pinch.raf)pinch.raf=requestAnimationFrame(()=>{if(pinch){pinch.raf=0;zoom(pinch.target,pinch.cx)}})};
   const onEnd=e=>{if(e.touches.length<2&&pinch){if(pinch.el!==sc){pinch.el.removeEventListener("touchmove",onMove);pinch.el.removeEventListener("touchend",onEnd);pinch.el.removeEventListener("touchcancel",onEnd)}pinch=null}};
   sc.addEventListener("touchstart",e=>{if(e.touches.length!==2)return;const [a,b]=e.touches;const r=sc.getBoundingClientRect();
@@ -593,9 +598,35 @@ function mountGantt(host,rows,key){
     if(e.target!==sc){e.target.addEventListener("touchmove",onMove,{passive:false});e.target.addEventListener("touchend",onEnd);e.target.addEventListener("touchcancel",onEnd)}},{passive:true});
   sc.addEventListener("touchmove",e=>{if(pinch&&pinch.el===sc)onMove(e)},{passive:false});
   sc.addEventListener("touchend",e=>{if(pinch&&pinch.el===sc)onEnd(e)});sc.addEventListener("touchcancel",e=>{if(pinch&&pinch.el===sc)onEnd(e)});
-  // mouse drag pans
+  // drag a planned bar onto a row (another builder, or a new spot in the same one)
+  let mv=null;
+  const rowAt=y=>[...cv.querySelectorAll(".tl-row")].findIndex(r=>{const b=r.getBoundingClientRect();return y>=b.top&&y<b.bottom});
+  const mvStart=(el,cx,cy)=>{const r=el.getBoundingClientRect();
+    mv={el,cx,cy,off:cx-r.left,type:(rows[[...cv.querySelectorAll(".tl-row")].indexOf(el.closest(".tl-row"))]||{}).type,to:-1};el.classList.add("dragging");sc.classList.add("moving");};
+  const mvMove=(cx,cy)=>{if(!mv)return;mv.el.style.transform="translate("+(cx-mv.cx)+"px,"+(cy-mv.cy)+"px)";
+    const r=sc.getBoundingClientRect();if(cx<r.left+28)sc.scrollLeft-=12;else if(cx>r.right-28)sc.scrollLeft+=12;
+    const i=rowAt(cy);const ok=i>=0&&rows[i].type===mv.type;cv.querySelectorAll(".tl-row").forEach((rw,k)=>rw.classList.toggle("drop",ok&&k===i));mv.to=ok?i:-1;mv.x=cx};
+  const mvEnd=cancel=>{if(!mv)return;const m=mv;mv=null;sc.classList.remove("moving");
+    if(cancel||m.to<0||m.x==null){m.el.style.transform="";m.el.classList.remove("dragging");cv.querySelectorAll(".tl-row.drop").forEach(r=>r.classList.remove("drop"));return}
+    const r=sc.getBoundingClientRect();host._anchor=tAt(0);opts.onMove(m.el.dataset.q,+m.el.dataset.i,rows[m.to].id,tAt(m.x-m.off-r.left))};
+  if(opts.onMove){
+    // touch: press and hold a bar to pick it up, so a normal swipe still scrolls
+    let hold=null;
+    sc.addEventListener("touchstart",e=>{const el=e.target.closest&&e.target.closest(".tl-bar.mv");if(!el||e.touches.length!==1)return;const t=e.touches[0];
+      hold={x:t.clientX,y:t.clientY,timer:setTimeout(()=>{hold=null;mvStart(el,t.clientX,t.clientY);if(navigator.vibrate)try{navigator.vibrate(20)}catch(_){}},380)};
+      const tm=ev=>{const u=ev.touches[0];if(mv){ev.preventDefault();mvMove(u.clientX,u.clientY)}else if(hold&&Math.hypot(u.clientX-hold.x,u.clientY-hold.y)>8){clearTimeout(hold.timer);hold=null}};
+      const te=ev=>{if(hold){clearTimeout(hold.timer);hold=null}el.removeEventListener("touchmove",tm);el.removeEventListener("touchend",te);el.removeEventListener("touchcancel",te);mvEnd(ev.type==="touchcancel")};
+      el.addEventListener("touchmove",tm,{passive:false});el.addEventListener("touchend",te);el.addEventListener("touchcancel",te);},{passive:true});
+    sc.addEventListener("contextmenu",e=>{if(e.target.closest(".tl-bar.mv"))e.preventDefault()});
+  }
+  // mouse drag pans, or moves a planned bar
   let drag=null;
-  sc.addEventListener("pointerdown",e=>{if(e.pointerType!=="mouse"||e.button!==0)return;drag={x:e.clientX,sl:sc.scrollLeft};sc.setPointerCapture(e.pointerId);sc.classList.add("grab")});
+  sc.addEventListener("pointerdown",e=>{if(e.pointerType!=="mouse"||e.button!==0)return;
+    const el=opts.onMove&&e.target.closest(".tl-bar.mv");
+    if(el){e.preventDefault();sc.setPointerCapture(e.pointerId);const sx=e.clientX,sy=e.clientY;
+      const pm=ev=>{if(!mv&&Math.hypot(ev.clientX-sx,ev.clientY-sy)>5)mvStart(el,sx,sy);mvMove(ev.clientX,ev.clientY)};
+      const pu=ev=>{sc.removeEventListener("pointermove",pm);sc.removeEventListener("pointerup",pu);sc.removeEventListener("pointercancel",pu);mvEnd(ev.type==="pointercancel")};
+      sc.addEventListener("pointermove",pm);sc.addEventListener("pointerup",pu);sc.addEventListener("pointercancel",pu);return}drag={x:e.clientX,sl:sc.scrollLeft};sc.setPointerCapture(e.pointerId);sc.classList.add("grab")});
   sc.addEventListener("pointermove",e=>{if(drag)sc.scrollLeft=drag.sl-(e.clientX-drag.x)});
   const end=()=>{if(drag){drag=null;sc.classList.remove("grab")}};sc.addEventListener("pointerup",end);sc.addEventListener("pointercancel",end);
   draw();host._refresh();
@@ -732,8 +763,8 @@ function renderMyPlan(){
     (S.thEnd>V.th?'<div class="sum"><span>Ends at</span><b>TH'+S.thEnd+'</b></div>':'')+'</div>';
   if(warns)h+='<div class="alert crit"><span class="dot"></span><div><b>'+warns+' planned upgrade'+(warns>1?"s have a problem":" has a problem")+'</b> (marked in red below): a missing requirement or a level that starts before the one before it is done.</div></div>';
   // chart
-  const rows=S.queues.map(q=>({label:q.label,bars:[...(q.headStep?[q.head].map(o=>({name:o.name,from:o.cur-1,to:o.cur,start:V.ts,end:o.fin,k:mpKind(o),running:true})):[]),
-    ...q.items.filter(s=>s.st).map(s=>({name:s.o.name,from:s.to-1,to:s.to,start:s.start,end:s.end,cost:s.st.cost,res:s.st.res,k:mpKind(s.o),newb:s.o.cur===0&&s.to===1,warn:s.warn}))]}));
+  const rows=S.queues.map(q=>({id:q.id,type:q.extra?"x":q.type,label:q.label,bars:[...(q.headStep?[q.head].map(o=>({name:o.name,from:o.cur-1,to:o.cur,start:V.ts,end:o.fin,k:mpKind(o),running:true})):[]),
+    ...q.items.map((s,i)=>[s,i]).filter(([s])=>s.st).map(([s,i])=>({dq:q.id,di:i,name:s.o.name,from:s.to-1,to:s.to,start:s.start,end:s.end,cost:s.st.cost,res:s.st.res,k:mpKind(s.o),newb:s.o.cur===0&&s.to===1,warn:s.warn}))]}));
   h+='<div><h3 style="margin:0">Timeline</h3><div class="gantt"></div></div>';
   // queues
   h+='<div class="mp-grid">';
@@ -751,7 +782,12 @@ function renderMyPlan(){
   h+='</div>';
   h+='<p class="sub">Times assume you start each upgrade the moment the one before it finishes, without potions, books or the Builder\'s Apprentice. When you paste a new export, upgrades it shows as done or started come off the list.</p>';
   el.innerHTML=h;
-  const gEl=el.querySelector(".gantt");gEl._anchor=MP_ANCHOR;mountGantt(gEl,rows,"mp");
+  const gEl=el.querySelector(".gantt");gEl._anchor=MP_ANCHOR;mountGantt(gEl,rows,"mp",{onMove:(fq,fi,tq,t)=>{
+    // drop at time t: goes before the first item in the target queue that starts at or after t
+    const it=MP.q[fq]&&MP.q[fq][fi];if(!it||tq[0]==="x")return renderMyPlan();
+    const start=new Map();for(const q of S.queues)for(const s of q.items)start.set(s.it,s.start);
+    MP.q[fq].splice(fi,1);const a=MP.q[tq]||(MP.q[tq]=[]);let k=a.findIndex(x=>start.get(x)>=t);if(k<0)k=a.length;a.splice(k,0,it);
+    MP_ANCHOR=gEl._anchor;mpSave();renderMyPlan();}});
   gEl.querySelector(".tl-scroll").addEventListener("scroll",()=>{MP_ANCHOR=gEl._anchor},{passive:true});
   el.querySelectorAll("select.mv").forEach(sel=>sel.onchange=()=>{const a=MP.q[sel.dataset.q];const [it]=a.splice(+sel.dataset.i,1);(MP.q[sel.value]||(MP.q[sel.value]=[])).push(it);mpSave();renderMyPlan()});
   el.onclick=e=>{const b=e.target.closest("[data-act]");if(!b)return;const act=b.dataset.act,qid=b.dataset.q,i=+b.dataset.i;const a=MP.q[qid];
