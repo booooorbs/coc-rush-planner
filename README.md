@@ -51,3 +51,7 @@ To build locally (needs JDK 17 and the Android SDK):
 python3 scripts/build.py
 cd android && ./gradlew assembleDebug   # app/build/outputs/apk/debug/app-debug.apk
 ```
+
+## Disclaimer
+
+This material is unofficial and is not endorsed by Supercell. For more information see Supercell's Fan Content Policy: www.supercell.com/fan-content-policy.
