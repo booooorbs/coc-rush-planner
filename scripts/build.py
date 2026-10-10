@@ -1,5 +1,5 @@
-"""Build dist/rush-planner.html: fetch game data, compact it, inline it with the sample export."""
-import json, pathlib, subprocess, sys, urllib.request
+"""Build dist/rush-planner.html: fetch game data, compact it and inline it."""
+import pathlib, subprocess, sys, urllib.request
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 DATA_URL = "https://raw.githubusercontent.com/mathsman5133/coc.py/master/coc/static/static_data.json"
@@ -11,8 +11,7 @@ gamedata = ROOT / "build" / "gamedata.js"
 subprocess.run([sys.executable, "-I", str(ROOT / "scripts" / "gen_gamedata.py"), str(cache), str(gamedata)], check=True)
 
 page = (ROOT / "src" / "template.html").read_text()
-sample = json.dumps(json.loads((ROOT / "src" / "sample-village.json").read_text()), separators=(",", ":"))
-page = page.replace("/*GAMEDATA*/", gamedata.read_text()).replace("/*SAMPLE*/", sample)
+page = page.replace("/*GAMEDATA*/", gamedata.read_text())
 # The template is also published as a claude.ai artifact, which supplies the document
 # skeleton; a standalone file needs its own (standards mode, UTF-8, mobile viewport).
 page = (

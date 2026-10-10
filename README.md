@@ -26,7 +26,6 @@ python3 scripts/build.py --refresh  # re-download game data
 Output: `dist/rush-planner.html`, a self-contained page (no server needed).
 
 - `src/template.html`: the app (HTML, CSS, JS).
-- `src/sample-village.json`: the export the page opens with.
 - `scripts/gen_gamedata.py`: compacts game data (names, max levels per TH, times, costs, TH unlocks).
 
 Game data comes from [coc.py](https://github.com/mathsman5133/coc.py)'s `static_data.json`. Equipment newer than that file isn't shown.

@@ -246,7 +246,6 @@ select.mv{max-width:104px}
 
 <script>
 /*GAMEDATA*/
-const SAMPLE = /*SAMPLE*/;
 </script>
 <script>
 "use strict";
@@ -305,25 +304,29 @@ const count=(g)=>g?g.reduce((a,x)=>a+x.n,0):0;
 
 // ---------- villages ----------
 // Each village is keyed by its player tag and keeps its own export (rp:vd:<tag>), My Plan (rp:vp:<tag>) and settings (rp:vs:<tag>).
-// rp:villages = {active:tag, list:[{tag,name,th}]}. The bundled sample stands in for a village with no saved export.
+// rp:villages = {active:tag, list:[{tag,name,th}]}. With no village yet, only the Update tab is shown.
 const thOf=j=>{const b=j&&Array.isArray(j.buildings)&&j.buildings.find(e=>e.data===ID.TH);return b?b.lvl:0};
 let VIL=store.get("villages",null);
-if(!VIL||!Array.isArray(VIL.list)||!VIL.list.length){
-  // First run, or data saved before villages existed: move the one village into the new keys.
-  const old=store.get("village",null),tag=(old&&old.tag)||SAMPLE.tag;
-  VIL={active:tag,list:[{tag,name:"",th:thOf(old||SAMPLE)}]};
-  if(old)store.set("vd:"+tag,old);
+if(!VIL||!Array.isArray(VIL.list))VIL={active:null,list:[]};
+const old=store.get("village",null);
+if(!VIL.list.length&&old&&old.tag){
+  // Data saved before villages existed: move the one village into the new keys.
+  const tag=old.tag;
+  VIL={active:tag,list:[{tag,name:"",th:thOf(old)}]};
+  store.set("vd:"+tag,old);
   const mp=store.get("myplan",null);if(mp)store.set("vp:"+tag,mp);
   const s=store.get("settings",null);if(s)store.set("vs:"+tag,s);
-  store.set("villages",VIL);
 }
-if(!VIL.list.some(r=>r.tag===VIL.active))VIL.active=VIL.list[0].tag;
+// Older builds listed a village that only had the bundled sample; drop entries with no saved export.
+VIL.list=VIL.list.filter(r=>store.get("vd:"+r.tag,null));
+if(!VIL.list.some(r=>r.tag===VIL.active))VIL.active=VIL.list.length?VIL.list[0].tag:null;
+store.set("villages",VIL);
 const vilSave=()=>store.set("villages",VIL);
 const vilRec=tag=>VIL.list.find(r=>r.tag===tag);
 const vilName=r=>r.tag||"Village";
 const vget=(k,d)=>store.get(k+":"+VIL.active,d);
 const vset=(k,v)=>store.set(k+":"+VIL.active,v);
-const vilData=tag=>store.get("vd:"+tag,null)||(tag===SAMPLE.tag?SAMPLE:null);
+const vilData=tag=>store.get("vd:"+tag,null);
 
 // ---------- settings ----------
 const DEFAULT_SET={farm:[4000059,4000002,4000012],spells:[26000000,26000002,26000005],builders:0,style:"5d"};
@@ -907,8 +910,9 @@ const bCapNow=o=>mpCap(o,V.th);
 // ---------- render ----------
 let V=null;
 function load(){
-  try{V=parseVillage(vilData(VIL.active)||SAMPLE)}catch(e){V=parseVillage(SAMPLE)}
-  const r=vilRec(VIL.active);if(r&&r.th!==V.th){r.th=V.th;vilSave()}
+  const j=VIL.active&&vilData(VIL.active);
+  try{V=j?parseVillage(j):null}catch(e){V=null}
+  const r=vilRec(VIL.active);if(V&&r&&r.th!==V.th){r.th=V.th;vilSave()}
 }
 function switchVillage(tag){
   if(!vilRec(tag))return;
@@ -922,6 +926,7 @@ function renderVillageSelect(){
 }
 document.getElementById("vsel").onchange=e=>switchVillage(e.target.value);
 function headerMeta(){
+  if(!V){document.getElementById("thBadge").textContent="TH?";document.getElementById("meta").textContent="No village yet";return}
   document.getElementById("thBadge").textContent="TH"+V.th;
   const age=(Date.now()-V.ts)/1000;
   document.getElementById("meta").innerHTML=esc(V.tag)+" · data from "+(age<60?"just now":dur(age)+" ago")+" · home village";
@@ -1098,33 +1103,32 @@ function renderGuide(){
 
 function renderImport(){
   const el=document.getElementById("v-import");
-  const troopIds=Object.keys(V.units).map(Number).filter(id=>GD.U[id]&&GD.U[id].pb!=="Workshop");
-  const spellIds=Object.keys(V.units).map(Number).filter(id=>GD.SP[id]);
+  const welcome=V?"":'<div><h2>Welcome</h2><p class="sub">Paste your village\'s Data Export below to get your plan, timeline and upgrade lists.</p></div>';
+  const troopIds=!V?[]:Object.keys(V.units).map(Number).filter(id=>GD.U[id]&&GD.U[id].pb!=="Workshop");
+  const spellIds=!V?[]:Object.keys(V.units).map(Number).filter(id=>GD.SP[id]);
   const pick=(ids,key)=>'<div class="picks">'+ids.map(id=>'<button class="pick" data-k="'+key+'" data-id="'+id+'" aria-pressed="'+SET[key].includes(id)+'">'+esc(uDef(id).n)+'</button>').join("")+'</div>';
-  const isSample=VIL.active===SAMPLE.tag&&!store.get("vd:"+SAMPLE.tag,null);
   const vrows=VIL.list.map(r=>{const d=vilData(r.tag),on=r.tag===VIL.active;
     const age=d&&d.timestamp?dur(Date.now()/1000-d.timestamp)+" ago":"no export yet";
     return '<div class="vrow'+(on?" on":"")+'" data-tag="'+esc(r.tag)+'"><b class="vtag">'+esc(r.tag)+'</b>'+
       (on?'<span class="chip t1">Open</span>':'<button class="btn" data-va="open">Open</button>')+
       (VIL.list.length>1?'<button class="btn" data-va="del">Remove</button>':'')+
       '<div class="vinfo">'+(r.th?"TH"+r.th+" · ":"")+"data from "+age+'</div></div>'}).join("");
-  el.innerHTML='<div><h2>Update your village</h2><p class="sub" style="margin-bottom:8px">In Clash: Settings → More Settings → Data Export → Copy. Paste it here. It\'s saved in this browser only.</p>'+
+  el.innerHTML=welcome+'<div><h2>'+(V?"Update your village":"Add your village")+'</h2><p class="sub" style="margin-bottom:8px">In Clash: Settings → More Settings → Data Export → Copy. Paste it here. It\'s saved in this browser only.</p>'+
   '<textarea id="paste" placeholder=\'{"tag":"#...","timestamp":...,"buildings":[...]}\'></textarea>'+
-  '<div class="btns" style="margin-top:8px"><button class="btn primary" id="loadBtn">Load export</button>'+(VIL.active===SAMPLE.tag&&!isSample?'<button class="btn" id="resetBtn">Use the 8 Oct export</button>':'')+'</div><p class="msg" id="msg" role="status" style="margin-top:6px"></p></div>'+
+  '<div class="btns" style="margin-top:8px"><button class="btn primary" id="loadBtn">Load export</button>'+'</div><p class="msg" id="msg" role="status" style="margin-top:6px"></p></div>'+
   (VIL.list.length>1?'<div><h2>Your villages</h2><div class="vlist">'+vrows+'</div></div>':'')+
-  '<div><h2>Farming army</h2><p class="sub" style="margin-bottom:8px">These go to the top of the Lab list, in the order you pick them. Sneaky Goblins upgrade through the Goblin.</p><h3>Troops</h3>'+pick(troopIds,"farm")+'<h3 style="margin-top:10px">Spells</h3>'+pick(spellIds,"spells")+'</div>'+
+  (!V?'':'<div><h2>Farming army</h2><p class="sub" style="margin-bottom:8px">These go to the top of the Lab list, in the order you pick them. Sneaky Goblins upgrade through the Goblin.</p><h3>Troops</h3>'+pick(troopIds,"farm")+'<h3 style="margin-top:10px">Spells</h3>'+pick(spellIds,"spells")+'</div>'+
   '<div><h2>Builder plan</h2><p class="sub" style="margin-bottom:8px">What has to be done before each Town Hall.</p><div class="seg" role="group" aria-label="Builder plan"><button class="style" data-s="5d" aria-pressed="'+(SET.style!=="tee")+'">5D plan (TH13 to 16)</button><button class="style" data-s="tee" aria-pressed="'+(SET.style==="tee")+'">Tee checklist only</button></div></div>'+
-  '<div><h2>Builders</h2><div class="field"><label for="bcount">Number of builders</label><input id="bcount" type="number" min="1" max="7" value="'+(SET.builders||builderCount(V))+'"><span class="sub">Read from your export: '+builderCount(V)+'</span></div></div>'+
+  '<div><h2>Builders</h2><div class="field"><label for="bcount">Number of builders</label><input id="bcount" type="number" min="1" max="7" value="'+(SET.builders||builderCount(V))+'"><span class="sub">Read from your export: '+builderCount(V)+'</span></div></div>')+
   (appUpdates()?'<div><h2>App</h2><p class="sub" style="margin-bottom:8px">Rush Planner '+esc(RushPlannerAndroid.appVersion())+'. New versions are checked each time the app opens.</p><div class="btns"><button class="btn" id="updBtn">Check for updates</button></div></div>':'');
   const ub=document.getElementById("updBtn");if(ub)ub.onclick=()=>RushPlannerAndroid.checkForUpdates();
   const msg=(t,ok)=>{const m=document.getElementById("msg");m.textContent=t;m.className="msg "+(ok?"ok":"err")};
   document.getElementById("loadBtn").onclick=()=>{const t=document.getElementById("paste").value.trim();
-    try{const j=JSON.parse(t);const v=parseVillage(j);const tag=v.tag||"#?";let r=vilRec(tag);const added=!r;
+    try{const j=JSON.parse(t);const v=parseVillage(j);const first=!V;const tag=v.tag||"#?";let r=vilRec(tag);const added=!r;
       if(added){r={tag,name:"",th:v.th};VIL.list.push(r)}
-      store.set("vd:"+tag,j);r.th=v.th;vilSave();switchVillage(tag);
+      store.set("vd:"+tag,j);r.th=v.th;vilSave();switchVillage(tag);if(first){show("plan");return}
       msg((added?"New village added: ":"Updated ")+vilName(r)+" (TH"+v.th+")."+" The plan is updated.",true)}
     catch(e){msg(e instanceof SyntaxError?"That text isn't valid JSON. Copy the export again and paste the whole thing.":e.message,false)}};
-  const rb=document.getElementById("resetBtn");if(rb)rb.onclick=()=>{store.del("vd:"+SAMPLE.tag);load();renderAll();msg("Back to the 8 Oct export.",true)};
   el.querySelectorAll(".vrow").forEach(row=>{const tag=row.dataset.tag,r=vilRec(tag);
     const ob=row.querySelector('[data-va="open"]');if(ob)ob.onclick=()=>switchVillage(tag);
     const db=row.querySelector('[data-va="del"]');if(db)db.onclick=()=>{
@@ -1135,7 +1139,7 @@ function renderImport(){
       msg("Removed "+vilName(r)+".",true)}});
   el.querySelectorAll(".pick").forEach(b=>b.onclick=()=>{const k=b.dataset.k,id=+b.dataset.id;const a=SET[k];const i=a.indexOf(id);if(i>=0)a.splice(i,1);else a.push(id);vset("vs",SET);renderAll(true)});
   el.querySelectorAll("button.style").forEach(b=>b.onclick=()=>{SET.style=b.dataset.s;vset("vs",SET);el.querySelectorAll("button.style").forEach(x=>x.setAttribute("aria-pressed",x.dataset.s===SET.style));renderAll(true)});
-  document.getElementById("bcount").onchange=e=>{const n=+e.target.value;SET.builders=n>0&&n!==builderCount(V)?n:0;vset("vs",SET);renderAll(true)};
+  const bc=document.getElementById("bcount");if(bc)bc.onchange=e=>{const n=+e.target.value;SET.builders=n>0&&n!==builderCount(V)?n:0;vset("vs",SET);renderAll(true)};
 }
 
 // Android app only: older app builds have no updater.
@@ -1152,19 +1156,24 @@ function syncWidget(){
     for(const id in v.units){const u=v.units[id];if(u.timer)jobs.push({kind:"Lab",name:pre+(uDef(id).n||"Research")+" "+(u.lvl+1),finish:v.ts+u.timer*1000})}
     for(const id in v.pets){const p=v.pets[id];if(p.timer)jobs.push({kind:"Pet",name:pre+((GD.P[id]||{}).n||"Pet")+" "+(p.lvl+1),finish:v.ts+p.timer*1000})}}
   jobs.sort((a,b)=>a.finish-b.finish);
-  try{RushPlannerAndroid.setTimers(JSON.stringify({saved:vs.length>0,tag:V.tag,ts:ts||V.ts,jobs}))}catch(e){}
+  try{RushPlannerAndroid.setTimers(JSON.stringify({saved:vs.length>0,tag:V?V.tag:"",ts:ts||(V?V.ts:0),jobs}))}catch(e){}
 }
 
-function renderAll(keepImport){syncWidget();headerMeta();renderVillageSelect();renderPlan();renderTimeline();renderMyPlan();renderLab();renderHeroes();renderTracker();renderGuide();if(!keepImport)renderImport();else{
+function renderAll(keepImport){
+  // No village yet: only the Update tab, to paste the first export.
+  document.querySelectorAll("#tabs button").forEach(b=>b.hidden=!V&&b.dataset.v!=="import");
+  if(!V){syncWidget();headerMeta();renderVillageSelect();renderImport();show("import",true);return}
+  syncWidget();headerMeta();renderVillageSelect();renderPlan();renderTimeline();renderMyPlan();renderLab();renderHeroes();renderTracker();renderGuide();if(!keepImport)renderImport();else{
   // refresh pick states without wiping the paste box
   document.querySelectorAll(".pick").forEach(b=>b.setAttribute("aria-pressed",SET[b.dataset.k].includes(+b.dataset.id)))}}
 
 // tabs
-function show(v){document.querySelectorAll("#tabs button").forEach(b=>b.setAttribute("aria-selected",b.dataset.v===v));
-  document.querySelectorAll("section.view").forEach(s=>s.hidden=s.id!=="v-"+v);document.querySelector(".wrap").classList.toggle("wide",v==="timeline"||v==="myplan");store.set("tab",v);document.querySelectorAll("#v-"+v+" .gantt").forEach(g=>g._refresh&&g._refresh())}
+function show(v,auto){
+  if(!V&&v!=="import")v="import";document.querySelectorAll("#tabs button").forEach(b=>b.setAttribute("aria-selected",b.dataset.v===v));
+  document.querySelectorAll("section.view").forEach(s=>s.hidden=s.id!=="v-"+v);document.querySelector(".wrap").classList.toggle("wide",v==="timeline"||v==="myplan");if(!auto)store.set("tab",v);document.querySelectorAll("#v-"+v+" .gantt").forEach(g=>g._refresh&&g._refresh())}
 document.getElementById("tabs").onclick=e=>{const b=e.target.closest("button");if(b)show(b.dataset.v)};
 
 load();renderAll();
-const initTab=(location.hash||"").slice(1);show(["plan","timeline","myplan","lab","heroes","tracker","guide","import"].includes(initTab)?initTab:store.get("tab","plan"));
-setInterval(()=>{headerMeta();renderPlan()},60000);
+const initTab=(location.hash||"").slice(1);show(["plan","timeline","myplan","lab","heroes","tracker","guide","import"].includes(initTab)?initTab:store.get("tab","plan"),!V);
+setInterval(()=>{headerMeta();if(V)renderPlan()},60000);
 </script>
