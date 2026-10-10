@@ -12,7 +12,9 @@ Paste your in-game data export (Settings → More Settings → Data Export → C
 - **Tracker**: progress against your Town Hall's max levels.
 - **Guide**: the rush rules in short form.
 
-Home village only. The export is saved in your browser's local storage.
+- **Villages**: keep several accounts side by side with no setup. The player tag in each export picks the village: a tag you already have updates that village, a new tag adds one. Each village has its own export, plan, My Plan queues and settings. Switch villages from the menu under the title; the Update tab lists them so you can remove one.
+
+Home village only. Exports are saved in your browser's local storage. On the Android widget, timers from every saved village are listed, each prefixed with its player tag when there is more than one.
 
 ## Build
 

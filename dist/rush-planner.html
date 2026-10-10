@@ -121,6 +121,14 @@ textarea{width:100%;min-height:150px;font:12px/1.4 ui-monospace,SFMono-Regular,M
 .msg{font-size:14px;font-weight:700}
 .msg.err{color:var(--crit)} .msg.ok{color:var(--ok)}
 .field{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.vsel{font:inherit;font-weight:700;font-size:13px;max-width:100%;padding:4px 8px;border-radius:8px;border:1px solid var(--line);background:var(--surface);color:var(--ink);margin-top:4px}
+.vlist{display:flex;flex-direction:column;gap:8px;margin-bottom:8px}
+.vrow{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px 12px;display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px}
+.vrow.on{border-color:var(--gold);box-shadow:inset 3px 0 0 var(--gold)}
+.vrow .vtag{flex:1 1 auto;min-width:0}
+.vrow .vinfo{flex:1 1 100%;order:3;color:var(--muted);font-size:13px}
+.vrow .btn{padding:6px 12px}
+.vrow .btn.arm{background:var(--crit);border-color:var(--crit);color:var(--surface)}
 .field input{width:70px;font:inherit;padding:6px 8px;border-radius:8px;border:1px solid var(--line);background:var(--surface);color:var(--ink)}
 .eq{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 12px;padding:8px 12px;border-top:1px solid var(--line)}
 .eq:first-child{border-top:0}
@@ -215,9 +223,10 @@ select.mv{max-width:104px}
   <header class="top">
     <div class="brand">
       <div class="th" id="thBadge">TH?</div>
-      <div style="min-width:0">
+      <div style="min-width:0;flex:1">
         <h1>Rush Planner</h1>
         <div class="meta" id="meta"></div>
+        <select class="vsel" id="vsel" aria-label="Village" hidden></select>
       </div>
     </div>
     <nav class="tabs" role="tablist" id="tabs">
@@ -260,7 +269,7 @@ const PET_TIERS=[["P1",["Frosty","Phoenix","Sneezy"]],["P2",["Angry Jelly","Elec
 const DAY=86400;
 
 // ---------- storage (per-browser convenience only) ----------
-const store={get(k,d){try{const v=localStorage.getItem("rp:"+k);return v==null?d:JSON.parse(v)}catch(e){return d}},set(k,v){try{localStorage.setItem("rp:"+k,JSON.stringify(v))}catch(e){}}};
+const store={get(k,d){try{const v=localStorage.getItem("rp:"+k);return v==null?d:JSON.parse(v)}catch(e){return d}},set(k,v){try{localStorage.setItem("rp:"+k,JSON.stringify(v))}catch(e){}},del(k){try{localStorage.removeItem("rp:"+k)}catch(e){}}};
 
 // ---------- formatting ----------
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
@@ -302,9 +311,31 @@ function parseVillage(j){
 const bLvl=(v,id)=>{const g=v.b[id];return g?Math.max(...g.map(x=>x.lvl)):0};
 const count=(g)=>g?g.reduce((a,x)=>a+x.n,0):0;
 
+// ---------- villages ----------
+// Each village is keyed by its player tag and keeps its own export (rp:vd:<tag>), My Plan (rp:vp:<tag>) and settings (rp:vs:<tag>).
+// rp:villages = {active:tag, list:[{tag,name,th}]}. The bundled sample stands in for a village with no saved export.
+const thOf=j=>{const b=j&&Array.isArray(j.buildings)&&j.buildings.find(e=>e.data===ID.TH);return b?b.lvl:0};
+let VIL=store.get("villages",null);
+if(!VIL||!Array.isArray(VIL.list)||!VIL.list.length){
+  // First run, or data saved before villages existed: move the one village into the new keys.
+  const old=store.get("village",null),tag=(old&&old.tag)||SAMPLE.tag;
+  VIL={active:tag,list:[{tag,name:"",th:thOf(old||SAMPLE)}]};
+  if(old)store.set("vd:"+tag,old);
+  const mp=store.get("myplan",null);if(mp)store.set("vp:"+tag,mp);
+  const s=store.get("settings",null);if(s)store.set("vs:"+tag,s);
+  store.set("villages",VIL);
+}
+if(!VIL.list.some(r=>r.tag===VIL.active))VIL.active=VIL.list[0].tag;
+const vilSave=()=>store.set("villages",VIL);
+const vilRec=tag=>VIL.list.find(r=>r.tag===tag);
+const vilName=r=>r.tag||"Village";
+const vget=(k,d)=>store.get(k+":"+VIL.active,d);
+const vset=(k,v)=>store.set(k+":"+VIL.active,v);
+const vilData=tag=>store.get("vd:"+tag,null)||(tag===SAMPLE.tag?SAMPLE:null);
+
 // ---------- settings ----------
 const DEFAULT_SET={farm:[4000059,4000002,4000012],spells:[26000000,26000002,26000005],builders:0,style:"5d"};
-let SET=Object.assign({},DEFAULT_SET,store.get("settings",{}));
+let SET=Object.assign({},DEFAULT_SET,vget("vs",{}));
 
 // ---------- state for planning ----------
 // Expanded per-instance state so the planner can simulate builders finishing.
@@ -660,8 +691,8 @@ function renderTimeline(){
 // Every upgrade level is its own item. Objects are one per building instance, hero, troop/spell/siege and pet;
 // each queue (a builder, the Lab, the Pet House) runs its items back to back after its current upgrade.
 // Saved shape: {q:{b1:[{o,to}],...,lab:[...],pet:[...]}, run:{objKey:queueId}} (run = which builder holds a running upgrade).
-let MP=store.get("myplan",null)||{q:{},run:{}};
-const mpSave=()=>store.set("myplan",MP);
+let MP=vget("vp",null)||{q:{},run:{}};
+const mpSave=()=>vset("vp",MP);
 const TH_MAX=()=>GD.B[ID.TH].L.length;
 // How many of a building a Town Hall allows (merged Cannons/Archer Towers/Wizard Towers keep their TH15 count).
 function instCount(id,th){if([ID.CANNON,ID.AT,ID.WT].includes(id))th=Math.min(th,15);return requiredCounts(th)[id]||0}
@@ -884,9 +915,20 @@ const bCapNow=o=>mpCap(o,V.th);
 // ---------- render ----------
 let V=null;
 function load(){
-  const saved=store.get("village",null);
-  try{V=parseVillage(saved||SAMPLE)}catch(e){V=parseVillage(SAMPLE)}
+  try{V=parseVillage(vilData(VIL.active)||SAMPLE)}catch(e){V=parseVillage(SAMPLE)}
+  const r=vilRec(VIL.active);if(r&&r.th!==V.th){r.th=V.th;vilSave()}
 }
+function switchVillage(tag){
+  if(!vilRec(tag))return;
+  VIL.active=tag;vilSave();
+  SET=Object.assign({},DEFAULT_SET,vget("vs",{}));MP=vget("vp",null)||{q:{},run:{}};
+  load();renderAll();
+}
+function renderVillageSelect(){
+  const sel=document.getElementById("vsel");sel.hidden=VIL.list.length<2;
+  sel.innerHTML=VIL.list.map(r=>'<option value="'+esc(r.tag)+'"'+(r.tag===VIL.active?" selected":"")+'>'+esc(vilName(r))+(r.th?" · TH"+r.th:"")+'</option>').join("");
+}
+document.getElementById("vsel").onchange=e=>switchVillage(e.target.value);
 function headerMeta(){
   document.getElementById("thBadge").textContent="TH"+V.th;
   const age=(Date.now()-V.ts)/1000;
@@ -1067,33 +1109,56 @@ function renderImport(){
   const troopIds=Object.keys(V.units).map(Number).filter(id=>GD.U[id]&&GD.U[id].pb!=="Workshop");
   const spellIds=Object.keys(V.units).map(Number).filter(id=>GD.SP[id]);
   const pick=(ids,key)=>'<div class="picks">'+ids.map(id=>'<button class="pick" data-k="'+key+'" data-id="'+id+'" aria-pressed="'+SET[key].includes(id)+'">'+esc(uDef(id).n)+'</button>').join("")+'</div>';
+  const isSample=VIL.active===SAMPLE.tag&&!store.get("vd:"+SAMPLE.tag,null);
+  const vrows=VIL.list.map(r=>{const d=vilData(r.tag),on=r.tag===VIL.active;
+    const age=d&&d.timestamp?dur(Date.now()/1000-d.timestamp)+" ago":"no export yet";
+    return '<div class="vrow'+(on?" on":"")+'" data-tag="'+esc(r.tag)+'"><b class="vtag">'+esc(r.tag)+'</b>'+
+      (on?'<span class="chip t1">Open</span>':'<button class="btn" data-va="open">Open</button>')+
+      (VIL.list.length>1?'<button class="btn" data-va="del">Remove</button>':'')+
+      '<div class="vinfo">'+(r.th?"TH"+r.th+" · ":"")+"data from "+age+'</div></div>'}).join("");
   el.innerHTML='<div><h2>Update your village</h2><p class="sub" style="margin-bottom:8px">In Clash: Settings → More Settings → Data Export → Copy. Paste it here. It\'s saved in this browser only.</p>'+
   '<textarea id="paste" placeholder=\'{"tag":"#...","timestamp":...,"buildings":[...]}\'></textarea>'+
-  '<div class="btns" style="margin-top:8px"><button class="btn primary" id="loadBtn">Load export</button><button class="btn" id="resetBtn">Use the 8 Oct export</button></div><p class="msg" id="msg" role="status" style="margin-top:6px"></p></div>'+
+  '<div class="btns" style="margin-top:8px"><button class="btn primary" id="loadBtn">Load export</button>'+(VIL.active===SAMPLE.tag&&!isSample?'<button class="btn" id="resetBtn">Use the 8 Oct export</button>':'')+'</div><p class="msg" id="msg" role="status" style="margin-top:6px"></p></div>'+
+  (VIL.list.length>1?'<div><h2>Your villages</h2><div class="vlist">'+vrows+'</div></div>':'')+
   '<div><h2>Farming army</h2><p class="sub" style="margin-bottom:8px">These go to the top of the Lab list, in the order you pick them. Sneaky Goblins upgrade through the Goblin.</p><h3>Troops</h3>'+pick(troopIds,"farm")+'<h3 style="margin-top:10px">Spells</h3>'+pick(spellIds,"spells")+'</div>'+
   '<div><h2>Builder plan</h2><p class="sub" style="margin-bottom:8px">What has to be done before each Town Hall.</p><div class="seg" role="group" aria-label="Builder plan"><button class="style" data-s="5d" aria-pressed="'+(SET.style!=="tee")+'">5D plan (TH13 to 16)</button><button class="style" data-s="tee" aria-pressed="'+(SET.style==="tee")+'">Tee checklist only</button></div></div>'+
   '<div><h2>Builders</h2><div class="field"><label for="bcount">Number of builders</label><input id="bcount" type="number" min="1" max="7" value="'+(SET.builders||builderCount(V))+'"><span class="sub">Read from your export: '+builderCount(V)+'</span></div></div>';
   const msg=(t,ok)=>{const m=document.getElementById("msg");m.textContent=t;m.className="msg "+(ok?"ok":"err")};
   document.getElementById("loadBtn").onclick=()=>{const t=document.getElementById("paste").value.trim();
-    try{const j=JSON.parse(t);const v=parseVillage(j);store.set("village",j);V=v;renderAll();msg("Loaded TH"+v.th+" "+v.tag+". The plan is updated.",true)}
+    try{const j=JSON.parse(t);const v=parseVillage(j);const tag=v.tag||"#?";let r=vilRec(tag);const added=!r;
+      if(added){r={tag,name:"",th:v.th};VIL.list.push(r)}
+      store.set("vd:"+tag,j);r.th=v.th;vilSave();switchVillage(tag);
+      msg((added?"New village added: ":"Updated ")+vilName(r)+" (TH"+v.th+")."+" The plan is updated.",true)}
     catch(e){msg(e instanceof SyntaxError?"That text isn't valid JSON. Copy the export again and paste the whole thing.":e.message,false)}};
-  document.getElementById("resetBtn").onclick=()=>{store.set("village",null);V=parseVillage(SAMPLE);renderAll();msg("Back to the 8 Oct export.",true)};
-  el.querySelectorAll(".pick").forEach(b=>b.onclick=()=>{const k=b.dataset.k,id=+b.dataset.id;const a=SET[k];const i=a.indexOf(id);if(i>=0)a.splice(i,1);else a.push(id);store.set("settings",SET);renderAll(true)});
-  el.querySelectorAll("button.style").forEach(b=>b.onclick=()=>{SET.style=b.dataset.s;store.set("settings",SET);el.querySelectorAll("button.style").forEach(x=>x.setAttribute("aria-pressed",x.dataset.s===SET.style));renderAll(true)});
-  document.getElementById("bcount").onchange=e=>{const n=+e.target.value;SET.builders=n>0&&n!==builderCount(V)?n:0;store.set("settings",SET);renderAll(true)};
+  const rb=document.getElementById("resetBtn");if(rb)rb.onclick=()=>{store.del("vd:"+SAMPLE.tag);load();renderAll();msg("Back to the 8 Oct export.",true)};
+  el.querySelectorAll(".vrow").forEach(row=>{const tag=row.dataset.tag,r=vilRec(tag);
+    const ob=row.querySelector('[data-va="open"]');if(ob)ob.onclick=()=>switchVillage(tag);
+    const db=row.querySelector('[data-va="del"]');if(db)db.onclick=()=>{
+      // Two taps, so a stray tap can't wipe a village.
+      if(!db.classList.contains("arm")){db.classList.add("arm");db.textContent="Tap again to remove";setTimeout(()=>{if(db.isConnected){db.classList.remove("arm");db.textContent="Remove"}},4000);return}
+      ["vd","vp","vs"].forEach(k=>store.del(k+":"+tag));VIL.list=VIL.list.filter(x=>x!==r);
+      if(VIL.active===tag)switchVillage(VIL.list[0].tag);else{vilSave();renderAll()}
+      msg("Removed "+vilName(r)+".",true)}});
+  el.querySelectorAll(".pick").forEach(b=>b.onclick=()=>{const k=b.dataset.k,id=+b.dataset.id;const a=SET[k];const i=a.indexOf(id);if(i>=0)a.splice(i,1);else a.push(id);vset("vs",SET);renderAll(true)});
+  el.querySelectorAll("button.style").forEach(b=>b.onclick=()=>{SET.style=b.dataset.s;vset("vs",SET);el.querySelectorAll("button.style").forEach(x=>x.setAttribute("aria-pressed",x.dataset.s===SET.style));renderAll(true)});
+  document.getElementById("bcount").onchange=e=>{const n=+e.target.value;SET.builders=n>0&&n!==builderCount(V)?n:0;vset("vs",SET);renderAll(true)};
 }
 
 // Android app only: hand the running timers to the home-screen widget.
+// Every village with a saved export is listed; names get the village's name in front once there are several.
 function syncWidget(){
   if(!window.RushPlannerAndroid)return;
-  const jobs=busyJobs(V).map(j=>({kind:j.kind==="h"?"Hero":"Builder",name:j.name+" "+(j.from+1),finish:j.finish}));
-  for(const id in V.units){const u=V.units[id];if(u.timer)jobs.push({kind:"Lab",name:(uDef(id).n||"Research")+" "+(u.lvl+1),finish:V.ts+u.timer*1000})}
-  for(const id in V.pets){const p=V.pets[id];if(p.timer)jobs.push({kind:"Pet",name:((GD.P[id]||{}).n||"Pet")+" "+(p.lvl+1),finish:V.ts+p.timer*1000})}
+  const vs=[];for(const r of VIL.list){const j=store.get("vd:"+r.tag,null);if(!j)continue;try{vs.push([r,parseVillage(j)])}catch(e){}}
+  const jobs=[];let ts=0;
+  for(const [r,v] of vs){const pre=vs.length>1?vilName(r)+": ":"";ts=Math.max(ts,v.ts);
+    for(const j of busyJobs(v))jobs.push({kind:j.kind==="h"?"Hero":"Builder",name:pre+j.name+" "+(j.from+1),finish:j.finish});
+    for(const id in v.units){const u=v.units[id];if(u.timer)jobs.push({kind:"Lab",name:pre+(uDef(id).n||"Research")+" "+(u.lvl+1),finish:v.ts+u.timer*1000})}
+    for(const id in v.pets){const p=v.pets[id];if(p.timer)jobs.push({kind:"Pet",name:pre+((GD.P[id]||{}).n||"Pet")+" "+(p.lvl+1),finish:v.ts+p.timer*1000})}}
   jobs.sort((a,b)=>a.finish-b.finish);
-  try{RushPlannerAndroid.setTimers(JSON.stringify({saved:!!store.get("village",null),tag:V.tag,ts:V.ts,jobs}))}catch(e){}
+  try{RushPlannerAndroid.setTimers(JSON.stringify({saved:vs.length>0,tag:V.tag,ts:ts||V.ts,jobs}))}catch(e){}
 }
 
-function renderAll(keepImport){syncWidget();headerMeta();renderPlan();renderTimeline();renderMyPlan();renderLab();renderHeroes();renderTracker();renderGuide();if(!keepImport)renderImport();else{
+function renderAll(keepImport){syncWidget();headerMeta();renderVillageSelect();renderPlan();renderTimeline();renderMyPlan();renderLab();renderHeroes();renderTracker();renderGuide();if(!keepImport)renderImport();else{
   // refresh pick states without wiping the paste box
   document.querySelectorAll(".pick").forEach(b=>b.setAttribute("aria-pressed",SET[b.dataset.k].includes(+b.dataset.id)))}}
 
