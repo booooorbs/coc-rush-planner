@@ -1113,7 +1113,7 @@ function renderImport(){
       (on?'<span class="chip t1">Open</span>':'<button class="btn" data-va="open">Open</button>')+
       (VIL.list.length>1?'<button class="btn" data-va="del">Remove</button>':'')+
       '<div class="vinfo">'+(r.th?"TH"+r.th+" · ":"")+"data from "+age+'</div></div>'}).join("");
-  el.innerHTML=welcome+'<div><h2>'+(V?"Update your village":"Add your village")+'</h2><p class="sub" style="margin-bottom:8px">In Clash: Settings → More Settings → Data Export → Copy. Paste it here. It\'s saved in this browser only.</p>'+
+  el.innerHTML=welcome+'<div><h2>'+(V?"Update your village":"Add your village")+'</h2><p class="sub" style="margin-bottom:8px">In Clash: Settings → More Settings → Data Export → Copy. Paste it here. '+(window.RushPlannerAndroid?"It\'s saved in this app on this phone only.":"It\'s saved in this browser only.")+'</p>'+
   '<textarea id="paste" placeholder=\'{"tag":"#...","timestamp":...,"buildings":[...]}\'></textarea>'+
   '<div class="btns" style="margin-top:8px"><button class="btn primary" id="loadBtn">Load export</button>'+'</div><p class="msg" id="msg" role="status" style="margin-top:6px"></p></div>'+
   (VIL.list.length>1?'<div><h2>Your villages</h2><div class="vlist">'+vrows+'</div></div>':'')+
