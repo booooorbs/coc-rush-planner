@@ -1114,7 +1114,9 @@ function renderImport(){
   (VIL.list.length>1?'<div><h2>Your villages</h2><div class="vlist">'+vrows+'</div></div>':'')+
   '<div><h2>Farming army</h2><p class="sub" style="margin-bottom:8px">These go to the top of the Lab list, in the order you pick them. Sneaky Goblins upgrade through the Goblin.</p><h3>Troops</h3>'+pick(troopIds,"farm")+'<h3 style="margin-top:10px">Spells</h3>'+pick(spellIds,"spells")+'</div>'+
   '<div><h2>Builder plan</h2><p class="sub" style="margin-bottom:8px">What has to be done before each Town Hall.</p><div class="seg" role="group" aria-label="Builder plan"><button class="style" data-s="5d" aria-pressed="'+(SET.style!=="tee")+'">5D plan (TH13 to 16)</button><button class="style" data-s="tee" aria-pressed="'+(SET.style==="tee")+'">Tee checklist only</button></div></div>'+
-  '<div><h2>Builders</h2><div class="field"><label for="bcount">Number of builders</label><input id="bcount" type="number" min="1" max="7" value="'+(SET.builders||builderCount(V))+'"><span class="sub">Read from your export: '+builderCount(V)+'</span></div></div>';
+  '<div><h2>Builders</h2><div class="field"><label for="bcount">Number of builders</label><input id="bcount" type="number" min="1" max="7" value="'+(SET.builders||builderCount(V))+'"><span class="sub">Read from your export: '+builderCount(V)+'</span></div></div>'+
+  (appUpdates()?'<div><h2>App</h2><p class="sub" style="margin-bottom:8px">Rush Planner '+esc(RushPlannerAndroid.appVersion())+'. New versions are checked each time the app opens.</p><div class="btns"><button class="btn" id="updBtn">Check for updates</button></div></div>':'');
+  const ub=document.getElementById("updBtn");if(ub)ub.onclick=()=>RushPlannerAndroid.checkForUpdates();
   const msg=(t,ok)=>{const m=document.getElementById("msg");m.textContent=t;m.className="msg "+(ok?"ok":"err")};
   document.getElementById("loadBtn").onclick=()=>{const t=document.getElementById("paste").value.trim();
     try{const j=JSON.parse(t);const v=parseVillage(j);const tag=v.tag||"#?";let r=vilRec(tag);const added=!r;
@@ -1135,6 +1137,9 @@ function renderImport(){
   el.querySelectorAll("button.style").forEach(b=>b.onclick=()=>{SET.style=b.dataset.s;vset("vs",SET);el.querySelectorAll("button.style").forEach(x=>x.setAttribute("aria-pressed",x.dataset.s===SET.style));renderAll(true)});
   document.getElementById("bcount").onchange=e=>{const n=+e.target.value;SET.builders=n>0&&n!==builderCount(V)?n:0;vset("vs",SET);renderAll(true)};
 }
+
+// Android app only: older app builds have no updater.
+function appUpdates(){return !!window.RushPlannerAndroid&&typeof RushPlannerAndroid.checkForUpdates==="function"}
 
 // Android app only: hand the running timers to the home-screen widget.
 // Every village with a saved export is listed; names get the village's name in front once there are several.
