@@ -172,6 +172,26 @@ textarea{width:100%;min-height:150px;font:12px/1.4 ui-monospace,SFMono-Regular,M
 .tl-bar.now-running{box-shadow:inset 3px 0 0 var(--crit)}
 .legend{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:12.5px;color:var(--muted)}
 .legend i{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:5px;vertical-align:-1px;border:1px solid}
+.tl-lab{display:flex;flex-direction:column;line-height:1.15;min-width:0}
+.tl-lab small{font-weight:700;font-size:11px;color:var(--muted)}
+.tl-labels .rec small{color:var(--elixir)}
+.tl-row.rec,.tl-labels div.rec{background:color-mix(in srgb,var(--elixir) 7%,transparent);border-top:2px solid var(--line)}
+.tl-labels div.rec{background:color-mix(in srgb,var(--elixir) 10%,var(--sunk))}
+.tl-row.mine{border-top:1px dashed var(--line)}
+.tl-labels div.mine{border-top:1px dashed var(--line)}
+.tl-row.solo,.tl-labels div.solo{border-top:2px solid var(--line)}
+.tl-row.rec:first-of-type{border-top:0}
+.tl-row.rec .tl-bar{opacity:.85}
+.mp-view{align-self:flex-start}
+.cmp-list{display:flex;flex-direction:column;background:var(--surface);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.cmp-list.flat{border:0;border-radius:0}
+.cmp-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 10px;padding:8px 12px;border-top:1px solid var(--line);align-items:baseline}
+.cmp-row:first-child{border-top:0}
+.cmp-row .gap{font-size:12.5px;font-weight:800;white-space:nowrap}
+.gap.later{color:var(--crit)} .gap.sooner{color:var(--ok)} .gap.same{color:var(--muted)}
+.cmp-when{grid-column:1 / -1;display:flex;flex-wrap:wrap;gap:2px 14px;font-size:12.5px;color:var(--muted)}
+.sw{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:5px;vertical-align:0}
+.sw.rec{background:var(--elixir)} .sw.mine{background:var(--gold)}
 .tl-bar.warn{border-color:var(--crit)!important;box-shadow:inset 0 -3px 0 var(--crit)}
 /* My Plan */
 .mp-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,330px),1fr));gap:12px;align-items:start}
@@ -587,7 +607,7 @@ function simulateLab(v,events,days){
   }
   return bars;
 }
-// Gantt chart shared by the Timeline and My Plan tabs. rows: [{label,bars:[{name,from,to,start,end,cost,res,k,running,newb,warn}]}]
+// Gantt chart shared by the Timeline and My Plan tabs. rows: [{label,tag?,cls?,bars:[{name,from,to,start,end,cost,res,k,running,newb,warn}]}]
 // Scrolls sideways (swipe, drag, shift+wheel) and zooms (buttons, pinch, ctrl+wheel); zoom is px per day, saved per chart.
 const PX_MIN=8,PX_MAX=2400;
 // opts.onMove(queueId,index,toRowId,time): makes bars that carry dq/di draggable onto rows of the same r.type.
@@ -598,7 +618,7 @@ function mountGantt(host,rows,key,opts){opts=opts||{};
   const days=Math.min(90,Math.max(7,Math.ceil((lastEnd-t0)/(DAY*1000))+1));
   host.innerHTML='<div class="tl-tools gz"><div class="btns"><div class="seg" role="group" aria-label="Scroll"><button data-z="back" aria-label="Scroll back">‹</button><button data-z="now">Now</button><button data-z="fwd" aria-label="Scroll forward">›</button></div><div class="seg" role="group" aria-label="Zoom"><button data-z="out" aria-label="Zoom out">−</button><button data-z="in" aria-label="Zoom in">+</button></div></div>'+
     '<div class="seg" role="group" aria-label="Show">'+[[1,"1 day"],[7,"1 week"],[14,"2 weeks"],[30,"1 month"]].map(([d,t])=>'<button data-fit="'+d+'">'+t+'</button>').join("")+'</div></div>'+
-    '<div class="tl"><div class="tl-labels"><div>'+esc(new Date(now).toLocaleDateString(undefined,{month:"long"}))+'</div>'+rows.map(r=>'<div>'+esc(r.label)+'</div>').join("")+'</div><div class="tl-scroll"><div class="tl-canvas"></div></div></div>';
+    '<div class="tl"><div class="tl-labels"><div>'+esc(new Date(now).toLocaleDateString(undefined,{month:"long"}))+'</div>'+rows.map(r=>'<div'+(r.cls?' class="'+r.cls+'"':'')+'>'+(r.tag?'<span class="tl-lab"><b>'+esc(r.label)+'</b><small>'+esc(r.tag)+'</small></span>':esc(r.label))+'</div>').join("")+'</div><div class="tl-scroll"><div class="tl-canvas"></div></div></div>';
   const sc=host.querySelector(".tl-scroll"),cv=host.querySelector(".tl-canvas");
   const draw=()=>{const px=st.px;const width=Math.round(days*px);const x=t=>(t-t0)/(DAY*1000)*px;
     const step=px>=1600?1:px>=800?2:px>=400?3:px>=220?6:0;
@@ -614,7 +634,7 @@ function mountGantt(host,rows,key,opts){opts=opts||{};
       const tip=b.name+" "+lvl+" · "+(b.running?"in progress, done ":"start "+when(b.start)+", done ")+when(b.end)+(b.warn?" · "+b.warn:"")+(b.dq&&opts.onMove?" · drag to move (press and hold on touch)":"");
       return '<div class="tl-bar k-'+b.k+(b.running?" now-running":"")+(b.warn?" warn":"")+(b.dq&&opts.onMove?" mv":"")+'"'+(b.dq&&opts.onMove?' data-q="'+b.dq+'" data-i="'+b.di+'"':'')+' style="left:'+l+'px;width:'+(r-l-2)+'px" title="'+esc(tip)+'"><b>'+esc(b.name)+' '+lvl+'</b><span>'+(b.running?"done in "+dur((b.end-now)/1000):dur((b.end-b.start)/1000))+cost+'</span></div>'};
     cv.style.width=width+"px";
-    cv.innerHTML='<div class="tl-axis">'+ax+'</div>'+grid+rows.map(r=>'<div class="tl-row">'+r.bars.map(bar).join("")+'</div>').join("")+'<div class="tl-now" style="left:'+x(now)+'px"></div>';};
+    cv.innerHTML='<div class="tl-axis">'+ax+'</div>'+grid+rows.map(r=>'<div class="tl-row'+(r.cls?" "+r.cls:"")+'">'+r.bars.map(bar).join("")+'</div>').join("")+'<div class="tl-now" style="left:'+x(now)+'px"></div>';};
   const tAt=cx=>t0+(sc.scrollLeft+cx)/st.px*DAY*1000;
   const keep=(t,cx)=>{sc.scrollLeft=(t-t0)/(DAY*1000)*st.px-cx};
   // zoom around a point on screen (cx = px from the chart's left edge)
@@ -791,12 +811,22 @@ function whenD(ms){const d=new Date(ms);return (ms-Date.now()<6*DAY*1000)?when(m
 const mpKind=o=>o.kind==="h"?"hero":o.kind==="u"||o.kind==="p"?"lab":o.key==="th"?"th":o.isNew&&o.cur===0?"gate":kindOf("b",o.id);
 const mpLvl=(o,to)=>o.kind==="b"&&to===1&&o.cur===0?"build":"Lvl "+to;
 
-let MP_CONFIRM=false,MP_ANCHOR=null;
+let MP_CONFIRM=false,MP_ANCHOR=null,MP_VIEW=store.get("mpview","edit");
+// Chart rows for your queues; drag=true marks planned bars as movable.
+function mpRows(S,drag){
+  return S.queues.map(q=>({id:q.id,type:q.extra?"x":q.type,label:q.label,bars:[...(q.headStep?[q.head].map(o=>({name:o.name,from:o.cur-1,to:o.cur,start:V.ts,end:o.fin,k:mpKind(o),running:true})):[]),
+    ...q.items.map((s,i)=>[s,i]).filter(([s])=>s.st).map(([s,i])=>Object.assign(drag?{dq:q.id,di:i}:{},{name:s.o.name,from:s.to-1,to:s.to,start:s.start,end:s.end,cost:s.st.cost,res:s.st.res,k:mpKind(s.o),newb:s.o.cur===0&&s.to===1,warn:s.warn}))]}));
+}
 function renderMyPlan(){
   const el=document.getElementById("v-myplan");if(!el)return;
   const R=mpObjects(V);mpReconcile(R);const S=mpSchedule(V,R);const now=Date.now();
   const n=mpItems().length;
-  let h='<div class="tl-tools"><div><h2 style="margin:0">My plan</h2><p class="sub">Your own queues: pick each upgrade level and the builder it goes on. Each queue starts after its current upgrade.</p></div>'+
+  const cmp=MP_VIEW==="compare";
+  const toggle='<div class="seg mp-view" role="group" aria-label="View"><button data-view="edit" aria-pressed="'+!cmp+'">Edit</button><button data-view="compare" aria-pressed="'+cmp+'">Compare</button></div>';
+  if(cmp){el.innerHTML='<div class="tl-tools"><div><h2 style="margin:0">My plan vs recommended</h2><p class="sub">How your queues line up against the rush rules\' plan from the Timeline tab.</p></div>'+toggle+'</div>';
+    el.onclick=e=>{const b=e.target.closest("[data-view]");if(b){MP_VIEW=b.dataset.view;store.set("mpview",MP_VIEW);renderMyPlan()}};
+    renderCompare(el,R,S);return}
+  let h='<div class="tl-tools"><div><h2 style="margin:0">My plan</h2><p class="sub">Your own queues: pick each upgrade level and the builder it goes on. Each queue starts after its current upgrade.</p></div>'+toggle+
     '<div class="btns"><button class="btn primary" data-act="add" data-q="auto">+ Add upgrades</button><button class="btn" data-act="copy">Copy recommended plan</button>'+(n?'<button class="btn" data-act="clear">Clear</button>':'')+'</div></div>';
   if(MP_CONFIRM)h+='<div class="alert warn"><span class="dot"></span><div style="flex:1"><b>'+(MP_CONFIRM==="copy"?"Replace your builder and Lab queues with the recommended plan's next 30 days?":"Remove all "+n+" planned upgrades?")+'</b><div class="btns" style="margin-top:8px"><button class="btn primary" data-act="yes">'+(MP_CONFIRM==="copy"?"Replace":"Remove all")+'</button><button class="btn" data-act="no">Cancel</button></div></div></div>';
   // summary
@@ -807,8 +837,7 @@ function renderMyPlan(){
     (S.thEnd>V.th?'<div class="sum"><span>Ends at</span><b>TH'+S.thEnd+'</b></div>':'')+'</div>';
   if(warns)h+='<div class="alert crit"><span class="dot"></span><div><b>'+warns+' planned upgrade'+(warns>1?"s have a problem":" has a problem")+'</b> (marked in red below): a missing requirement or a level that starts before the one before it is done.</div></div>';
   // chart
-  const rows=S.queues.map(q=>({id:q.id,type:q.extra?"x":q.type,label:q.label,bars:[...(q.headStep?[q.head].map(o=>({name:o.name,from:o.cur-1,to:o.cur,start:V.ts,end:o.fin,k:mpKind(o),running:true})):[]),
-    ...q.items.map((s,i)=>[s,i]).filter(([s])=>s.st).map(([s,i])=>({dq:q.id,di:i,name:s.o.name,from:s.to-1,to:s.to,start:s.start,end:s.end,cost:s.st.cost,res:s.st.res,k:mpKind(s.o),newb:s.o.cur===0&&s.to===1,warn:s.warn}))]}));
+  const rows=mpRows(S,true);
   h+='<div><h3 style="margin:0">Timeline</h3><div class="gantt"></div></div>';
   // queues
   h+='<div class="mp-grid">';
@@ -834,7 +863,8 @@ function renderMyPlan(){
     MP_ANCHOR=gEl._anchor;mpSave();renderMyPlan();}});
   gEl.querySelector(".tl-scroll").addEventListener("scroll",()=>{MP_ANCHOR=gEl._anchor},{passive:true});
   el.querySelectorAll("select.mv").forEach(sel=>sel.onchange=()=>{const a=MP.q[sel.dataset.q];const [it]=a.splice(+sel.dataset.i,1);(MP.q[sel.value]||(MP.q[sel.value]=[])).push(it);mpSave();renderMyPlan()});
-  el.onclick=e=>{const b=e.target.closest("[data-act]");if(!b)return;const act=b.dataset.act,qid=b.dataset.q,i=+b.dataset.i;const a=MP.q[qid];
+  el.onclick=e=>{const v=e.target.closest("[data-view]");if(v){MP_VIEW=v.dataset.view;store.set("mpview",MP_VIEW);return renderMyPlan()}
+    const b=e.target.closest("[data-act]");if(!b)return;const act=b.dataset.act,qid=b.dataset.q,i=+b.dataset.i;const a=MP.q[qid];
     if(act==="add")return mpOpenSheet(qid);
     if(act==="copy"||act==="clear"){MP_CONFIRM=act;return renderMyPlan()}
     if(act==="no"){MP_CONFIRM=false;return renderMyPlan()}
@@ -845,20 +875,88 @@ function renderMyPlan(){
     mpSave();renderMyPlan();};
 }
 
-// Turn the recommended plan's next 30 days into items (builders and Lab; the Pet House queue is kept).
-function mpCopyRecommended(){
-  const R=mpObjects(V);const lp=labPlan(V);const sim=simulateTimeline(V,lp.blocking,60);const lab=simulateLab(V,sim.events,60);
-  const horizon=Date.now()+30*DAY*1000;const lv={};for(const k in R.O)lv[k]=R.O[k].cur;
-  const q={};const bars=[];
-  sim.rows.forEach((r,i)=>{q["b"+(i+1)]=[];for(const b of r)if(!b.running&&b.start<horizon)bars.push([("b"+(i+1)),b])});
+// The recommended plan (Timeline tab) as My Plan items: [{q,key,to,start,end,b}], builders then Lab, by start time.
+function recPlan(v,R){
+  const lp=labPlan(v);const sim=simulateTimeline(v,lp.blocking,60);const lab=simulateLab(v,sim.events,60);
+  const lv={};for(const k in R.O)lv[k]=R.O[k].cur;
+  const items=[];const bars=[];
+  sim.rows.forEach((r,i)=>{for(const b of r)if(!b.running)bars.push([("b"+(i+1)),b])});
   bars.sort((a,b)=>a[1].start-b[1].start);
   for(const [qid,b] of bars){let key=null;
     if(b.kind==="h")key="h:"+b.id;else if(b.id===ID.TH)key="th";
     else{const o=(R.byId[b.id]||[]).find(o=>lv[o.key]===b.from);if(o)key=o.key}
-    if(!key||!R.O[key])continue;lv[key]=b.to;q[qid].push({o:key,to:b.to});}
-  q.lab=lab.filter(b=>!b.running&&b.start<horizon&&R.O["u:"+b.id]).map(b=>({o:"u:"+b.id,to:b.to}));
+    if(!key||!R.O[key])continue;lv[key]=b.to;items.push({q:qid,key,to:b.to,start:b.start,end:b.end,b});}
+  for(const b of lab)if(!b.running&&R.O["u:"+b.id])items.push({q:"lab",key:"u:"+b.id,to:b.to,start:b.start,end:b.end,b});
+  return {sim,lab,items};
+}
+// Turn the recommended plan's next 30 days into items (builders and Lab; the Pet House queue is kept).
+function mpCopyRecommended(){
+  const R=mpObjects(V);const P=recPlan(V,R);const horizon=Date.now()+30*DAY*1000;
+  const q={};P.sim.rows.forEach((r,i)=>q["b"+(i+1)]=[]);
+  for(const it of P.items)if(it.start<horizon)(q[it.q]||(q[it.q]=[])).push({o:it.key,to:it.to});
   if(MP.q.pet)q.pet=MP.q.pet;
   MP={q,run:{}};
+}
+
+// ---------- Compare: recommended plan vs My Plan ----------
+// Same building type at the same level counts as the same upgrade, whichever copy (Cannon #2 or #3) it lands on.
+const cmpKey=(o,to)=>(o.kind==="b"&&o.key!=="th"?"b"+o.id:o.key)+">"+to;
+const cmpName=(o,to)=>(o.kind==="b"&&o.n>1?(GD.B[o.id]||GD.T[o.id]).n:o.name)+" "+mpLvl(o,to);
+function cmpGap(mine,rec){
+  if(mine==null&&rec==null)return {t:"—",c:""};
+  if(mine==null)return {t:"not in yours",c:"later"};if(rec==null)return {t:"not in recommended",c:"sooner"};
+  const d=(mine-rec)/1000;if(Math.abs(d)<1800)return {t:"same time",c:"same"};
+  return {t:dur(Math.abs(d))+(d>0?" later":" sooner"),c:d>0?"later":"sooner"};
+}
+function compareData(v,R,S){
+  const P=recPlan(v,R);const now=Date.now();
+  const mine=[];for(const q of S.queues)for(const s of q.items)if(s.st&&s.o)mine.push({q:q.id,key:s.o.key,to:s.to,start:s.start,end:s.end});
+  const rec=P.items;
+  // pair upgrades by type+level, in time order
+  const group=list=>{const m=new Map();for(const it of list.slice().sort((a,b)=>a.start-b.start)){const k=cmpKey(R.O[it.key],it.to);(m.get(k)||m.set(k,[]).get(k)).push(it)}return m};
+  const gm=group(mine),gr=group(rec);const pairs=[],onlyMine=[],onlyRec=[];
+  for(const [k,a] of gm){const b=gr.get(k)||[];a.forEach((it,i)=>b[i]?pairs.push([it,b[i]]):onlyMine.push(it))}
+  for(const [k,b] of gr){const a=gm.get(k)||[];b.slice(a.length).forEach(it=>onlyRec.push(it))}
+  // "only in recommended" looks as far ahead as your plan reaches
+  const until=Math.max(now+DAY*1000,...mine.map(x=>x.end));
+  const missing=onlyRec.filter(it=>it.start<until).sort((a,b)=>a.start-b.start);
+  onlyMine.sort((a,b)=>a.start-b.start);
+  pairs.sort((x,y)=>Math.abs(y[0].end-y[1].end)-Math.abs(x[0].end-x[1].end));
+  // milestones: next Town Halls (start and done), then each hero reaching this Town Hall's max
+  const ms=[];const th=v.th+(v.thTimer?1:0);
+  const at=(list,key,to,f)=>{const it=list.find(x=>x.key===key&&x.to===to);return it?it[f]:null};
+  const lastTH=Math.max(th,...[...mine,...rec].filter(x=>x.key==="th").map(x=>x.to));
+  for(let t=th+1;t<=Math.min(lastTH,th+2);t++){
+    ms.push({name:"Start TH"+t,rec:at(rec,"th",t,"start"),mine:at(mine,"th",t,"start")});
+    ms.push({name:"TH"+t+" done",rec:at(rec,"th",t,"end"),mine:at(mine,"th",t,"end")});}
+  for(const id of HERO_ORDER){const h=v.heroes[id];if(!h)continue;const o=R.O["h:"+id];const cap=hCap(id,th);if(!o||cap<=o.cur)continue;
+    ms.push({name:GD.H[id].n+" "+cap,rec:at(rec,o.key,cap,"end"),mine:at(mine,o.key,cap,"end")});}
+  return {P,mine,rec,pairs,onlyMine,missing,until,ms:ms.filter(m=>m.rec||m.mine)};
+}
+let CMP_ANCHOR=null;
+function renderCompare(el,R,S){
+  const now=Date.now();const C=compareData(V,R,S);
+  let h='';
+  if(!C.mine.length)h+='<div class="alert info"><span class="dot"></span><div>Your plan is empty, so there is nothing to compare yet. Switch to <b>Edit</b> to add upgrades or copy the recommended plan.</div></div>';
+  // milestones
+  h+='<div><h3 style="margin:0 0 6px">Milestones</h3><div class="cmp-list">'+(C.ms.length?C.ms.map(m=>{const g=cmpGap(m.mine,m.rec);
+    return '<div class="cmp-row"><b>'+esc(m.name)+'</b><span class="gap '+g.c+'">'+esc(g.t)+'</span><div class="cmp-when"><span><i class="sw rec"></i>Recommended '+(m.rec?esc(whenD(m.rec)):"not in 60 days")+'</span><span><i class="sw mine"></i>Yours '+(m.mine?esc(whenD(m.mine)):"not planned")+'</span></div></div>'}).join(""):'<div class="cmp-row"><span class="muted">No Town Hall or hero milestones ahead in either plan.</span></div>')+'</div></div>';
+  // differences
+  const line=(it,extra)=>'<div class="cmp-row"><b>'+esc(cmpName(R.O[it.key],it.to))+'</b>'+(extra||'')+'<div class="cmp-when"><span>'+esc(whenD(it.start))+' → '+esc(whenD(it.end))+'</span></div></div>';
+  const big=C.pairs.filter(([a,b])=>Math.abs(a.end-b.end)>=1800000);
+  h+='<details'+(big.length?' open':'')+'><summary>Same upgrade, different time <span class="muted">('+big.length+')</span></summary><div class="inner cmp-list flat">'+
+    (big.length?big.slice(0,12).map(([a,b])=>{const g=cmpGap(a.end,b.end);return '<div class="cmp-row"><b>'+esc(cmpName(R.O[a.key],a.to))+'</b><span class="gap '+g.c+'">'+esc(g.t)+'</span><div class="cmp-when"><span><i class="sw rec"></i>Rec. done '+esc(whenD(b.end))+'</span><span><i class="sw mine"></i>Yours done '+esc(whenD(a.end))+'</span></div></div>'}).join("")+(big.length>12?'<div class="cmp-row muted">…and '+(big.length-12)+' more</div>':''):'<div class="cmp-row muted">Everything both plans share finishes within half an hour.</div>')+'</div></details>';
+  h+='<details><summary>In recommended, not in yours <span class="muted">('+C.missing.length+')</span></summary><div class="inner cmp-list flat"><div class="cmp-row muted">Recommended upgrades that start before your plan ends ('+esc(whenD(C.until))+').</div>'+C.missing.map(it=>line(it)).join("")+'</div></details>';
+  h+='<details><summary>In yours, not in recommended <span class="muted">('+C.onlyMine.length+')</span></summary><div class="inner cmp-list flat">'+(C.onlyMine.length?C.onlyMine.map(it=>line(it)).join(""):'<div class="cmp-row muted">None.</div>')+'</div></details>';
+  // paired chart: recommended above yours for each builder and the Lab
+  const mineRows=mpRows(S,false);const rows=[];
+  const recRow=(qid,label)=>{const i=qid[0]==="b"&&!isNaN(+qid.slice(1))?+qid.slice(1)-1:-1;
+    const bars=qid==="lab"?C.P.lab:i>=0&&C.P.sim.rows[i]?C.P.sim.rows[i]:null;return bars?{label,tag:"Recommended",cls:"rec",type:"rec",bars}:null};
+  mineRows.forEach((r,k)=>{const rr=recRow(r.id,r.label);if(rr)rows.push(rr);rows.push(Object.assign({},r,{tag:"Yours",cls:rr?"mine":"mine solo"}))});
+  h+='<div><h3 style="margin:0">Side by side</h3><p class="sub">Each builder\'s recommended upgrades sit right above yours, on the same dates. Edit your plan in <b>Edit</b>.</p><div class="gantt"></div></div>'+LEGEND;
+  el.insertAdjacentHTML("beforeend",h);
+  const gEl=el.querySelector(".gantt");gEl._anchor=CMP_ANCHOR;mountGantt(gEl,rows,"cmp");
+  gEl.querySelector(".tl-scroll").addEventListener("scroll",()=>{CMP_ANCHOR=gEl._anchor},{passive:true});
 }
 
 // ---------- add-upgrade sheet ----------
