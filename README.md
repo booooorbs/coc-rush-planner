@@ -53,7 +53,11 @@ The build pulls the latest game data (see [Build](#build)) and writes `dist/rush
 - **Nothing personal is collected.** There are no accounts, no sign-in, no analytics, no ads and no tracking.
 - **Your data stays on your device.** The exports you paste and your plans are saved only in the app (or, for the web page, in that browser's local storage). They are never uploaded anywhere. Uninstalling the app or clearing the browser's site data deletes them.
 - **It works offline.** The page has its game data and fonts built in and makes no network requests of its own.
-- **The only time the Android app goes online is to check for updates.** When it opens, and when you tap **Check for updates**, it downloads the small `version.json` file from this repository's GitHub release and, if there is a newer version, the update itself. It sends nothing about you or your village; like any download, GitHub sees the request.
+- **The only time the Android app goes online is to check for updates.** This happens when the app opens and when you tap **Check for updates**:
+  1. The app downloads a small file, `version.json`, from this repository's GitHub release. It says which version is the newest.
+  2. If that's newer than the version you have, the app downloads the new version from the same release. Otherwise it downloads nothing else.
+
+  The app sends nothing about you or your village. GitHub sees the download request, as it would for any download.
 
 ## Build
 
