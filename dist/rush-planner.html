@@ -147,7 +147,7 @@ textarea{width:100%;min-height:150px;font:12px/1.4 ui-monospace,SFMono-Regular,M
 .tl-hr{position:absolute;top:17px;font-size:11px;color:var(--muted);padding-left:4px;white-space:nowrap}
 .tl-grid.hr{border-left-style:dotted;opacity:.6}
 .gantt{display:flex;flex-direction:column;gap:8px}
-.gz .seg button{min-width:40px;padding:7px 12px}
+.gz .seg button{min-width:40px;padding:5px 12px;font-size:15px}
 .tl-scroll{cursor:grab;touch-action:pan-x pan-y;-webkit-overflow-scrolling:touch;overscroll-behavior-x:contain}
 /* keep a bar's name in view when the bar starts left of the visible area (clip, not hidden, so sticky works) */
 .tl-bar b,.tl-bar span{position:sticky;left:6px;max-width:max-content}
@@ -565,7 +565,7 @@ function mountGantt(host,rows,key,opts){opts=opts||{};
   const now=Date.now();const d0=new Date(now);d0.setHours(0,0,0,0);const t0=d0.getTime();
   const lastEnd=Math.max(now,...rows.flatMap(r=>r.bars.map(b=>b.end)));
   const days=Math.min(90,Math.max(7,Math.ceil((lastEnd-t0)/(DAY*1000))+1));
-  host.innerHTML='<div class="tl-tools gz"><div class="seg" role="group" aria-label="Zoom"><button data-z="out" aria-label="Zoom out">−</button><button data-z="now">Now</button><button data-z="in" aria-label="Zoom in">+</button></div>'+
+  host.innerHTML='<div class="tl-tools gz"><div class="btns"><div class="seg" role="group" aria-label="Scroll"><button data-z="back" aria-label="Scroll back">‹</button><button data-z="now">Now</button><button data-z="fwd" aria-label="Scroll forward">›</button></div><div class="seg" role="group" aria-label="Zoom"><button data-z="out" aria-label="Zoom out">−</button><button data-z="in" aria-label="Zoom in">+</button></div></div>'+
     '<div class="seg" role="group" aria-label="Show">'+[[1,"1 day"],[7,"1 week"],[14,"2 weeks"],[30,"1 month"]].map(([d,t])=>'<button data-fit="'+d+'">'+t+'</button>').join("")+'</div></div>'+
     '<div class="tl"><div class="tl-labels"><div>'+esc(new Date(now).toLocaleDateString(undefined,{month:"long"}))+'</div>'+rows.map(r=>'<div>'+esc(r.label)+'</div>').join("")+'</div><div class="tl-scroll"><div class="tl-canvas"></div></div></div>';
   const sc=host.querySelector(".tl-scroll"),cv=host.querySelector(".tl-canvas");
@@ -591,9 +591,13 @@ function mountGantt(host,rows,key,opts){opts=opts||{};
   const toNow=()=>keep(now,Math.min(sc.clientWidth*.15,80));
   host._refresh=()=>{if(!sc.clientWidth)return;if(host._anchor!=null)keep(host._anchor,0);else toNow()};
   sc.addEventListener("scroll",()=>{if(sc.clientWidth)host._anchor=tAt(0)},{passive:true});
-  host.querySelectorAll("[data-z]").forEach(b=>b.onclick=()=>{const z=b.dataset.z;if(z==="now")return toNow();zoom(st.px*(z==="in"?1.6:1/1.6))});
+  host.querySelectorAll("[data-z]").forEach(b=>b.onclick=()=>{const z=b.dataset.z;if(z==="now")return toNow();if(z==="back"||z==="fwd")return sc.scrollBy({left:(z==="fwd"?1:-1)*sc.clientWidth*.8,behavior:"smooth"});zoom(st.px*(z==="in"?1.6:1/1.6))});
   host.querySelectorAll("[data-fit]").forEach(b=>b.onclick=()=>{const w=sc.clientWidth||600;st.px=Math.max(PX_MIN,Math.min(PX_MAX,w/+b.dataset.fit));store.set("zoom:"+key,st.px);draw();toNow();host._anchor=tAt(0)});
   // ctrl/cmd + wheel (and trackpad pinch) zooms
+  // a plain mouse wheel over the chart scrolls it sideways until it reaches an end, then the page scrolls
+  sc.addEventListener("wheel",e=>{if(e.ctrlKey||e.metaKey||Math.abs(e.deltaX)>=Math.abs(e.deltaY))return;
+    const max=sc.scrollWidth-sc.clientWidth;if((e.deltaY<0&&sc.scrollLeft<=0)||(e.deltaY>0&&sc.scrollLeft>=max-1))return;
+    e.preventDefault();sc.scrollLeft+=e.deltaY*(e.deltaMode===1?40:1)},{passive:false});
   sc.addEventListener("wheel",e=>{if(!e.ctrlKey&&!e.metaKey)return;e.preventDefault();const r=sc.getBoundingClientRect();zoom(st.px*Math.exp(-e.deltaY*0.0025),e.clientX-r.left)},{passive:false});
   // two-finger pinch zooms; one finger scrolls natively. Redrawing removes the touched element from the page,
   // and a removed element's touch events no longer reach the chart, so listen on the touched element itself.
@@ -644,7 +648,7 @@ function renderTimeline(){
   const el=document.getElementById("v-timeline");const lp=labPlan(V);const prev=el.querySelector(".gantt");
   const sim=simulateTimeline(V,lp.blocking,60);const lab=simulateLab(V,sim.events,60);
   const rows=[...sim.rows.map((r,i)=>({label:"Builder "+(i+1),bars:r})),{label:"Lab",bars:lab}];
-  let h='<div><h2 style="margin:0">Builder timeline</h2><p class="sub">Your current upgrades, then what the rush rules start next on each builder. Swipe or drag to scroll; pinch, ctrl+scroll or −/+ to zoom.</p></div>';
+  let h='<div><h2 style="margin:0">Builder timeline</h2><p class="sub">Your current upgrades, then what the rush rules start next on each builder. Swipe, drag, scroll the mouse wheel or use ‹ › to move along it; pinch, ctrl+scroll or −/+ to zoom.</p></div>';
   h+='<div class="gantt"></div>'+LEGEND;
   h+='<p class="sub">This is a forecast: it assumes you start each upgrade the moment a builder frees up and always have the loot. Paste a fresh export to re-plan.</p>';
   el.innerHTML=h;
