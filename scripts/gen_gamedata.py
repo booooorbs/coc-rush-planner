@@ -41,7 +41,9 @@ for b in d['buildings']:
         for l in b['levels']:
             unl[l['level']] = [[u['_id'], u['quantity']] for u in (l.get('unlocks') or [])]
 HELP = {x['_id']: x['name'] for x in d['helpers']}
-data = {'B': B, 'T': T, 'U': U, 'SUP': SUP, 'SP': SP, 'H': H, 'P': P, 'E': E, 'UNL': unl, 'HELP': HELP}
+# Builder Base: names only, for tracking running upgrades (no BB planning).
+BBN = {x['_id']: x['name'] for k in ('buildings', 'traps', 'troops', 'heroes') for x in d[k] if x.get('village') == 'builderBase'}
+data = {'B': B, 'T': T, 'U': U, 'SUP': SUP, 'SP': SP, 'H': H, 'P': P, 'E': E, 'UNL': unl, 'HELP': HELP, 'BBN': BBN}
 s = json.dumps(data, separators=(',', ':'))
 open(out, 'w').write('const GD=' + s + ';')
 print(len(s))

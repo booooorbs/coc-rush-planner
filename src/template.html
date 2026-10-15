@@ -250,6 +250,7 @@ select.mv{max-width:104px}
       <button role="tab" data-v="lab" aria-selected="false">Lab &amp; Pets</button>
       <button role="tab" data-v="heroes" aria-selected="false">Heroes &amp; Gear</button>
       <button role="tab" data-v="tracker" aria-selected="false">Tracker</button>
+      <button role="tab" data-v="bb" aria-selected="false">Builder Base</button>
       <button role="tab" data-v="guide" aria-selected="false">Guide</button>
       <button role="tab" data-v="import" aria-selected="false">Update</button>
     </nav>
@@ -261,6 +262,7 @@ select.mv{max-width:104px}
     <section class="view" id="v-lab" hidden></section>
     <section class="view" id="v-heroes" hidden></section>
     <section class="view" id="v-tracker" hidden></section>
+    <section class="view" id="v-bb" hidden></section>
     <section class="view" id="v-guide" hidden></section>
     <section class="view" id="v-import" hidden></section>
   </main>
@@ -319,7 +321,24 @@ function parseVillage(j){
   for(const e of j.equipment||[])v.equip[e.data]=e.lvl;
   for(const e of j.helpers||[])v.helpers[e.data]=e.lvl;
   if(!v.th)throw new Error("Couldn't find the Town Hall in this export.");
+  v.bb=parseBB(j,v.ts);
   return v;
+}
+// Builder Base: tracking only. Running upgrades from buildings2/traps2/units2/heroes2 timers, and the
+// Clock Tower from boosts.clocktower_cooldown (seconds until its free boost can be used again;
+// the export leaves it out when the boost is ready). null when the export has no Builder Base.
+const BB_HALL=1000034,BB_CT=1000039;
+function parseBB(j,ts){
+  const bs=j.buildings2||[],ts2=j.traps2||[],us=j.units2||[],hs=j.heroes2||[];
+  if(!bs.length&&!ts2.length&&!us.length&&!hs.length)return null;
+  const bb={bh:0,ct:0,jobs:[],ready:0};const nm=id=>GD.BBN[id]||"Upgrade";
+  for(const e of bs){if(e.data===BB_HALL)bb.bh=e.lvl||0;if(e.data===BB_CT)bb.ct=e.lvl||0}
+  for(const e of [...bs,...ts2])if(e.timer)bb.jobs.push({kind:"b",name:nm(e.data),from:e.lvl||0,finish:ts+e.timer*1000});
+  for(const e of hs)if(e.timer)bb.jobs.push({kind:"h",name:nm(e.data),from:e.lvl||0,finish:ts+e.timer*1000});
+  for(const e of us)if(e.timer)bb.jobs.push({kind:"lab",name:nm(e.data),from:e.lvl||0,finish:ts+e.timer*1000});
+  bb.jobs.sort((a,b)=>a.finish-b.finish);
+  const cd=(j.boosts||{}).clocktower_cooldown||0;bb.ready=ts+cd*1000;
+  return bb;
 }
 const bLvl=(v,id)=>{const g=v.b[id];return g?Math.max(...g.map(x=>x.lvl)):0};
 const count=(g)=>g?g.reduce((a,x)=>a+x.n,0):0;
@@ -1189,6 +1208,23 @@ function renderTracker(){
   el.innerHTML=h;
 }
 
+// Builder Base: what's running and when the Clock Tower's free boost is ready. No BB planning.
+function renderBB(){
+  const el=document.getElementById("v-bb");const bb=V.bb;const now=Date.now();
+  if(!bb){el.innerHTML='<div><h2>Builder Base</h2><p class="sub">This export has no Builder Base data. Paste a fresh export on the Update tab once you\'ve unlocked it.</p></div>';return}
+  let h='<div><h2>Builder Base</h2><p class="sub" style="margin-bottom:8px">'+(bb.bh?"Builder Hall "+bb.bh+". ":"")+'Running upgrades and the Clock Tower, as of this export. Tracking only, no BB plan.</p>';
+  const ctLeft=(bb.ready-now)/1000;
+  h+='<div class="alerts">'+(ctLeft>0
+    ?'<div class="alert info"><span class="dot"></span><div><b>Clock Tower boost ready in '+dur(ctLeft)+'</b> ('+whenD(bb.ready)+').</div></div>'
+    :'<div class="alert ok"><span class="dot"></span><div><b>Clock Tower boost is ready.</b> If you\'ve used it since this export, paste a fresh one to restart the countdown.</div></div>')+'</div></div>';
+  const slot=(mk,x)=>{const left=(x.finish-now)/1000;return '<div class="slot"><div class="n">'+mk+'</div><div class="now">'+esc(x.name)+' '+x.from+' → '+(x.from+1)+'</div><div class="eta">'+(left>0?dur(left):"Done?")+'</div><div class="next">'+whenD(x.finish)+'</div></div>'};
+  const bj=bb.jobs.filter(x=>x.kind!=="lab"),lj=bb.jobs.filter(x=>x.kind==="lab");
+  h+='<div><h3>Builders</h3><div class="slots">'+(bj.length?bj.map((x,i)=>slot(i+1,x)).join(""):'<div class="slot free"><div class="n">–</div><div class="now">No builder upgrades running</div><div class="eta"></div></div>')+'</div></div>';
+  h+='<div><h3>Star Laboratory</h3><div class="slots">'+(lj.length?lj.map(x=>slot("⚗",x)).join(""):'<div class="slot free lab"><div class="n">⚗</div><div class="now">No research running</div><div class="eta"></div></div>')+'</div></div>';
+  if(bb.jobs.some(x=>x.finish<now))h+='<p class="sub">Timers marked Done? have probably finished since this export. Using the Clock Tower also speeds them up, so paste a fresh export for exact times.</p>';
+  el.innerHTML=h;
+}
+
 function renderGuide(){
   const th=V.th;const el=document.getElementById("v-guide");
   const ms={13:"TH13 to TH15: pass through quickly.",14:"TH13 to TH15: pass through quickly. The Pet House is new at TH14: prioritize it.",15:"TH13 to TH15: pass through quickly.",16:"TH16: get merged Cannons and Archer Towers, and max the Eagle Artillery before TH17.",17:"TH17: put one builder on the Giga Artillery before going to TH18.",18:"TH18 (max): unlock every offensive capability, then heroes. 3 builders on heroes (the 8-day hero, Grand Warden, Royal Champion), 2 on offense, 1 placing new buildings."}[th]||"TH2 to TH12: race to TH11. Upgrade Army Camps and the Clan Castle, then place new buildings.";
@@ -1264,6 +1300,9 @@ function syncWidget(){
     for(const j of busyJobs(v))g.push({kind:j.kind==="h"?"Hero":"Builder",name:j.name+" "+(j.from+1),finish:j.finish});
     for(const id in v.units){const u=v.units[id];if(u.timer)g.push({kind:"Lab",name:(uDef(id).n||"Research")+" "+(u.lvl+1),finish:v.ts+u.timer*1000})}
     for(const id in v.pets){const p=v.pets[id];if(p.timer)g.push({kind:"Pet",name:((GD.P[id]||{}).n||"Pet")+" "+(p.lvl+1),finish:v.ts+p.timer*1000})}
+    // Builder Base. done: what the row says once the time has passed (older app builds say "Done").
+    if(v.bb){for(const x of v.bb.jobs)g.push({kind:x.kind==="lab"?"Star Lab":x.kind==="h"?"BB Hero":"BB Builder",name:x.name+" "+(x.from+1),finish:x.finish});
+      g.push({kind:"Builder Base",name:"Clock Tower boost",finish:v.bb.ready,done:"Ready"})}
     g.sort(byFinish);groups.push({name:vilName(r),tag:r.tag,th:v.th,jobs:g});
     const pre=vs.length>1?vilName(r)+": ":"";for(const x of g)jobs.push(Object.assign({},x,{name:pre+x.name}))}
   jobs.sort(byFinish);
@@ -1274,7 +1313,7 @@ function renderAll(keepImport){
   // No village yet: only the Update tab, to paste the first export.
   document.querySelectorAll("#tabs button").forEach(b=>b.hidden=!V&&b.dataset.v!=="import");
   if(!V){syncWidget();headerMeta();renderVillageSelect();renderImport();show("import",true);return}
-  syncWidget();headerMeta();renderVillageSelect();renderPlan();renderTimeline();renderMyPlan();renderLab();renderHeroes();renderTracker();renderGuide();if(!keepImport)renderImport();else{
+  syncWidget();headerMeta();renderVillageSelect();renderPlan();renderTimeline();renderMyPlan();renderLab();renderHeroes();renderTracker();renderBB();renderGuide();if(!keepImport)renderImport();else{
   // refresh pick states without wiping the paste box
   document.querySelectorAll(".pick").forEach(b=>b.setAttribute("aria-pressed",SET[b.dataset.k].includes(+b.dataset.id)))}}
 
@@ -1285,6 +1324,6 @@ function show(v,auto){
 document.getElementById("tabs").onclick=e=>{const b=e.target.closest("button");if(b)show(b.dataset.v)};
 
 load();renderAll();
-const initTab=(location.hash||"").slice(1);show(["plan","timeline","myplan","lab","heroes","tracker","guide","import"].includes(initTab)?initTab:store.get("tab","plan"),!V);
-setInterval(()=>{headerMeta();if(V)renderPlan()},60000);
+const initTab=(location.hash||"").slice(1);show(["plan","timeline","myplan","lab","heroes","tracker","bb","guide","import"].includes(initTab)?initTab:store.get("tab","plan"),!V);
+setInterval(()=>{headerMeta();if(V){renderPlan();renderBB()}},60000);
 </script>
