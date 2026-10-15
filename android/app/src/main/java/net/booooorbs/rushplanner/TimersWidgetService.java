@@ -80,7 +80,9 @@ public class TimersWidgetService extends RemoteViewsService {
             row.setTextViewText(R.id.name, job.optString("name"));
             row.setTextViewText(R.id.kind, job.optString("kind"));
             if (finish <= now) {
-                row.setTextViewText(R.id.left, context.getString(R.string.widget_done));
+                // A timer can name its own finished state, like "Ready" for the Clock Tower boost.
+                String done = job.optString("done");
+                row.setTextViewText(R.id.left, done.isEmpty() ? context.getString(R.string.widget_done) : done);
                 row.setTextColor(R.id.left, context.getColor(R.color.widget_done));
                 row.setTextViewText(R.id.at, "");
             } else {
