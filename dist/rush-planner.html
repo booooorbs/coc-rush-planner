@@ -1347,11 +1347,14 @@ function syncWidget(){
     for(const j of busyJobs(v))g.push({kind:j.kind==="h"?"Hero":"Builder",name:j.name+" "+(j.from+1),finish:j.finish});
     for(const id in v.units){const u=v.units[id];if(u.timer)g.push({kind:"Lab",name:(uDef(id).n||"Research")+" "+(u.lvl+1),finish:v.ts+u.timer*1000})}
     for(const id in v.pets){const p=v.pets[id];if(p.timer)g.push({kind:"Pet",name:((GD.P[id]||{}).n||"Pet")+" "+(p.lvl+1),finish:v.ts+p.timer*1000})}
-    // Builder Base. done: what the row says once the time has passed (older app builds say "Done").
-    if(v.bb){for(const x of v.bb.jobs)g.push({kind:x.kind==="lab"?"Star Lab":x.kind==="h"?"BB Hero":"BB Builder",name:x.name+" "+(x.from+1),finish:x.finish});
-      g.push({kind:"Builder Base",name:"Clock Tower boost",finish:v.bb.ready,done:"Ready"})}
     g.sort(byFinish);groups.push({name:vilName(r),tag:r.tag,th:v.th,jobs:g});
-    const pre=vs.length>1?vilName(r)+": ":"";for(const x of g)jobs.push(Object.assign({},x,{name:pre+x.name}))}
+    // Builder Base gets its own section under the village. done: what the row says once the time has
+    // passed (older app builds say "Done").
+    const bg=[];
+    if(v.bb){for(const x of v.bb.jobs)bg.push({kind:x.kind==="lab"?"Star Lab":x.kind==="h"?"BB Hero":"BB Builder",name:x.name+" "+(x.from+1),finish:x.finish});
+      bg.push({kind:"Free boost",name:"Clock Tower",finish:v.bb.ready,done:"Ready"});
+      bg.sort(byFinish);groups.push({name:(vs.length>1?vilName(r)+" · ":"")+"Builder Base",tag:r.tag,bb:true,jobs:bg})}
+    const pre=vs.length>1?vilName(r)+": ":"";for(const x of [...g,...bg])jobs.push(Object.assign({},x,{name:pre+x.name}))}
   jobs.sort(byFinish);
   try{RushPlannerAndroid.setTimers(JSON.stringify({saved:vs.length>0,tag:V?V.tag:"",ts:ts||(V?V.ts:0),jobs,groups}))}catch(e){}
 }
