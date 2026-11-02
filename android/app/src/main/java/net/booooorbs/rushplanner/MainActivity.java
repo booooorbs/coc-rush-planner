@@ -1,10 +1,15 @@
 package net.booooorbs.rushplanner;
 
+import android.Manifest;
 import android.app.Activity;
+import android.app.NotificationManager;
 import android.content.ActivityNotFoundException;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
+import android.provider.Settings;
 import android.view.Window;
 import android.webkit.JavascriptInterface;
 import android.webkit.WebResourceRequest;
@@ -109,6 +114,20 @@ public class MainActivity extends Activity {
     protected void onResume() {
         super.onResume();
         updater.resume();
+        // Back from Android's settings: the notification switch may have changed.
+        notifyPage();
+    }
+
+    private static final int REQ_NOTIFY = 7;
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode == REQ_NOTIFY) notifyPage();
+    }
+
+    private void notifyPage() {
+        web.evaluateJavascript("window.rpNotifyChanged&&rpNotifyChanged()", null);
     }
 
     /** Exposed to the page as window.RushPlannerAndroid. */
@@ -126,6 +145,37 @@ public class MainActivity extends Activity {
         @JavascriptInterface
         public void checkForUpdates() {
             runOnUiThread(() -> updater.check(true));
+        }
+
+        /** "allowed" when Android lets the app post notifications, otherwise "off". */
+        @JavascriptInterface
+        public String notifications() {
+            return getSystemService(NotificationManager.class).areNotificationsEnabled() ? "allowed" : "off";
+        }
+
+        /** Asks for the notification permission (Android 13+); the page hears back via rpNotifyChanged. */
+        @JavascriptInterface
+        public void requestNotifications() {
+            runOnUiThread(() -> {
+                if (Build.VERSION.SDK_INT >= 33
+                        && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                    requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS}, REQ_NOTIFY);
+                } else {
+                    notifyPage();
+                }
+            });
+        }
+
+        /** Opens Android's notification settings for the app, for when the permission was refused. */
+        @JavascriptInterface
+        public void openNotificationSettings() {
+            runOnUiThread(() -> {
+                try {
+                    startActivity(new Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+                            .putExtra(Settings.EXTRA_APP_PACKAGE, getPackageName()));
+                } catch (ActivityNotFoundException ignored) {
+                }
+            });
         }
 
         /** Sets an alarm in the phone's clock app. See Alarms.set for the results. */

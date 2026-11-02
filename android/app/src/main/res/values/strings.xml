@@ -16,4 +16,8 @@
     <string name="alarm_no_app">No clock app on this phone takes alarms from other apps.</string>
     <string name="alarm_none">Nothing to set an alarm for. Check the Alarms tab in Rush Planner.</string>
     <string name="alarm_open_app">Open Rush Planner once to update, then try again.</string>
+    <string name="notify_channel">Upgrade alerts</string>
+    <string name="notify_channel_description">When an upgrade finishes, from the Alarms tab settings</string>
+    <string name="notify_done">Finished. Open Clash to start the next one.</string>
+    <string name="notify_soon">Finishes in %1$d min.</string>
 </resources>
