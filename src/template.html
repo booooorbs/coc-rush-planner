@@ -1322,25 +1322,25 @@ function syncWidget(){
 }
 
 // Android app only: one tap sets an alarm in the phone's clock app for the upgrade that finishes
-// first, across every saved village, home village and Builder Base. The Clock Tower's free boost
+// first in the selected village, home village and Builder Base. The Clock Tower's free boost
 // is not an upgrade, so it is left out. Older app builds and browsers have no setAlarm.
 function canAlarm(){return !!window.RushPlannerAndroid&&typeof RushPlannerAndroid.setAlarm==="function"}
 function nextUpgrade(){
   const now=Date.now();let best=null;
-  for(const g of timerGroups().groups)for(const j of g.jobs){
+  for(const g of timerGroups().groups)if(g.tag===VIL.active)for(const j of g.jobs){
     if(j.done||j.finish<=now)continue;
     if(!best||j.finish<best.finish)best={name:j.name,where:g.name,finish:j.finish}}
   return best;
 }
 function alarmButton(){
   const b=document.getElementById("alarmBtn");if(!b)return;
-  b.hidden=!canAlarm()||!VIL.list.length;
+  b.hidden=!canAlarm()||!V;
   const n=b.hidden?null:nextUpgrade();
   b.disabled=!n;b.title=n?"Set an alarm for "+n.name+" ("+n.where+")":"Nothing is upgrading";
 }
 function alarmSay(t){const m=document.getElementById("alarmMsg");m.textContent=t;m.hidden=!t;clearTimeout(alarmSay.t);if(t)alarmSay.t=setTimeout(()=>{m.hidden=true},12000)}
 document.getElementById("alarmBtn").onclick=()=>{
-  const n=nextUpgrade();if(!n){alarmSay("Nothing is upgrading in your saved exports.");alarmButton();return}
+  const n=nextUpgrade();if(!n){alarmSay("Nothing is upgrading in "+vilName(vilRec(VIL.active))+".");alarmButton();return}
   const when=new Date(Math.ceil(n.finish/60000)*60000).toLocaleString([], {weekday:"short",hour:"numeric",minute:"2-digit"});
   let r="";try{r=RushPlannerAndroid.setAlarm(n.finish,n.name+" · "+n.where)}catch(e){r="error"}
   alarmSay(({
