@@ -24,6 +24,15 @@
             </intent-filter>
         </activity>
 
+        <!-- The widget's alarm button: sets the alarm, shows a toast, closes. No screen of its own. -->
+        <activity
+            android:name=".AlarmActivity"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:noHistory="true"
+            android:taskAffinity=""
+            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+
         <receiver
             android:name=".TimersWidget"
             android:exported="false"
