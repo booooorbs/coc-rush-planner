@@ -1325,7 +1325,7 @@ function syncWidget(){
   const {vs,groups,jobs,ts}=timerGroups();
   // alarms: what the widget's alarm button can set, same list and settings as the Alarms tab.
   let alarms=[];try{if(V)alarms=alarmJobs().map(n=>({at:alarmAt(n),finish:n.finish,label:n.name+" · "+n.where}))}catch(e){}
-  try{RushPlannerAndroid.setTimers(JSON.stringify({saved:vs.length>0,tag:V?V.tag:"",ts:ts||(V?V.ts:0),jobs,groups,alarms}))}catch(e){}
+  try{RushPlannerAndroid.setTimers(JSON.stringify({saved:vs.length>0,tag:V?V.tag:"",ts:ts||(V?V.ts:0),jobs,groups,alarms,notify:canNotify()&&alarmSet().notify}))}catch(e){}
 }
 
 // Android app only: alarms in the phone's clock app. The header button sets one for the upgrade
@@ -1333,12 +1333,15 @@ function syncWidget(){
 // each one with its own button. Older app builds and browsers have no setAlarm, so both stay hidden.
 // Settings are shared by all villages: kinds (builder, hero, lab, pet, bb, ct) and early (minutes).
 const ALARM_KINDS=[["builder","Builders"],["idle","Builder goes idle"],["hero","Heroes"],["lab","Lab"],["pet","Pets"],["bb","Builder Base"],["ct","Clock Tower boost"]];
-const ALARM_DEF={kinds:["builder","idle","hero","lab","pet","bb"],early:0};
+const ALARM_DEF={kinds:["builder","idle","hero","lab","pet","bb"],early:0,notify:false};
 // seen: kinds the viewer has had the chance to toggle, so a kind added later starts at its default.
 function alarmSet(){const a=Object.assign({},ALARM_DEF,store.get("alarm",{}));if(!Array.isArray(a.kinds))a.kinds=ALARM_DEF.kinds.slice();
   const seen=Array.isArray(a.seen)?a.seen:["builder","hero","lab","pet","bb","ct"];
   for(const k of ALARM_DEF.kinds)if(!seen.includes(k)&&!a.kinds.includes(k))a.kinds.push(k);
   a.seen=ALARM_KINDS.map(x=>x[0]);return a}
+// App builds that can post their own notifications (the Alarms tab's Notifications switch).
+function canNotify(){return canAlarm()&&typeof RushPlannerAndroid.requestNotifications==="function"}
+window.rpNotifyChanged=()=>{if(V)renderAlarms()};
 function canAlarm(){return !!window.RushPlannerAndroid&&typeof RushPlannerAndroid.setAlarm==="function"}
 // Running timers of the selected village that the settings let through, soonest first.
 function alarmJobs(){
@@ -1385,11 +1388,18 @@ function renderAlarms(){
   const a=alarmSet(),now=Date.now(),js=alarmJobs();
   let h='<div><h2>Alarms</h2><p class="sub" style="margin-bottom:8px">⏰ Set alarm at the top, and the ⏰ on the home-screen widget, set one in your clock app for the first upgrade on this list. Only '+esc(vilName(vilRec(VIL.active)))+' counts; switch village to change that. Times are from your last export.</p></div>';
   h+='<div><h3>Count these timers</h3><div class="picks">'+ALARM_KINDS.map(([k,l])=>'<button class="atog" data-ak="'+k+'" aria-pressed="'+a.kinds.includes(k)+'">'+l+'</button>').join("")+'</div></div>';
+  if(canNotify()){const blocked=a.notify&&RushPlannerAndroid.notifications()!=="allowed";
+    h+='<div><h3>Notifications</h3><div class="seg"><button data-notify="0" aria-pressed="'+!a.notify+'">Off</button><button data-notify="1" aria-pressed="'+a.notify+'">On</button></div>'+
+      '<p class="sub" style="margin-top:6px">'+(a.notify?'Rush Planner notifies you for everything on the list below, with the same Ring early time. No clock alarm needed.':'Turn on to get a notification from Rush Planner for everything on the list below, instead of setting clock alarms one by one.')+' Times come from your last export, so paste a fresh one after you start or boost upgrades.</p>'+
+      (blocked?'<div class="alert warn" style="margin-top:8px"><span class="dot"></span><div style="flex:1"><b>Android is blocking Rush Planner\'s notifications.</b><div class="btns" style="margin-top:8px"><button class="btn" id="notifySettings">Open settings</button></div></div></div>':'')+'</div>'}
   h+='<div><h3>Ring early</h3><div class="seg">'+[0,5,10,15,30].map(m=>'<button data-early="'+m+'" aria-pressed="'+(a.early===m)+'">'+(m?m+" min":"On time")+'</button>').join("")+'</div></div>';
   h+='<div><h3>Coming up</h3><div class="list">'+(js.length?js.map((j,i)=>'<div class="row"><div class="name">'+esc(j.name)+' <span class="muted">· '+esc(j.kind)+'</span></div><div class="right"><button class="btn" data-al="'+i+'" aria-label="Set alarm for '+esc(j.name)+'" style="padding:5px 12px">⏰</button></div><div class="why">'+dur((j.finish-now)/1000)+' · '+whenD(j.finish)+'</div></div>').join(""):'<div class="row dim"><div class="name">Nothing running that these settings count.</div></div>')+'</div></div>';
   el.innerHTML=h;
   el.querySelectorAll(".atog").forEach(b=>b.onclick=()=>{const s=alarmSet(),k=b.dataset.ak,i=s.kinds.indexOf(k);if(i>=0)s.kinds.splice(i,1);else s.kinds.push(k);store.set("alarm",s);renderAlarms();syncWidget()});
   el.querySelectorAll("[data-early]").forEach(b=>b.onclick=()=>{const s=alarmSet();s.early=+b.dataset.early;store.set("alarm",s);renderAlarms();syncWidget()});
+  el.querySelectorAll("[data-notify]").forEach(b=>b.onclick=()=>{const s=alarmSet();s.notify=b.dataset.notify==="1";store.set("alarm",s);syncWidget();renderAlarms();
+    if(s.notify)try{RushPlannerAndroid.requestNotifications()}catch(e){}});
+  const ns=document.getElementById("notifySettings");if(ns)ns.onclick=()=>{try{RushPlannerAndroid.openNotificationSettings()}catch(e){}};
   el.querySelectorAll("[data-al]").forEach(b=>b.onclick=()=>setAlarmFor(js[+b.dataset.al]));
 }
 

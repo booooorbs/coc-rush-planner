@@ -23,6 +23,7 @@ public class TimersWidget extends AppWidgetProvider {
     static void save(Context context, String json) {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putString(KEY_TIMERS, json).apply();
         updateAll(context);
+        Notifier.reschedule(context);
     }
 
     static void updateAll(Context context) {
