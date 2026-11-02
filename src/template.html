@@ -109,6 +109,8 @@ textarea{width:100%;min-height:150px;font:12px/1.4 ui-monospace,SFMono-Regular,M
 .btn.primary{background:var(--gold);border-color:var(--gold);color:var(--surface)}
 .picks{display:flex;flex-wrap:wrap;gap:6px}
 .pick{font:inherit;font-size:13px;font-weight:700;border-radius:999px;padding:4px 10px;border:1px solid var(--line);background:var(--surface);color:var(--muted);cursor:pointer}
+.atog{font:inherit;font-size:13px;font-weight:700;border-radius:999px;padding:4px 10px;border:1px solid var(--line);background:var(--surface);color:var(--muted);cursor:pointer}
+.atog[aria-pressed="true"]{background:var(--elixir);border-color:var(--elixir);color:var(--surface)}
 .pick[aria-pressed="true"]{background:var(--elixir);border-color:var(--elixir);color:var(--surface)}
 .msg{font-size:14px;font-weight:700}
 .msg.err{color:var(--crit)} .msg.ok{color:var(--ok)}
@@ -255,6 +257,7 @@ select.mv{max-width:104px}
       <button role="tab" data-v="heroes" aria-selected="false">Heroes &amp; Gear</button>
       <button role="tab" data-v="tracker" aria-selected="false">Tracker</button>
       <button role="tab" data-v="bb" aria-selected="false">Builder Base</button>
+      <button role="tab" data-v="alarms" aria-selected="false" hidden>Alarms</button>
       <button role="tab" data-v="guide" aria-selected="false">Guide</button>
       <button role="tab" data-v="import" aria-selected="false">Update</button>
     </nav>
@@ -267,6 +270,7 @@ select.mv{max-width:104px}
     <section class="view" id="v-heroes" hidden></section>
     <section class="view" id="v-tracker" hidden></section>
     <section class="view" id="v-bb" hidden></section>
+    <section class="view" id="v-alarms" hidden></section>
     <section class="view" id="v-guide" hidden></section>
     <section class="view" id="v-import" hidden></section>
   </main>
@@ -1300,15 +1304,15 @@ function timerGroups(){
   const vs=[];for(const r of VIL.list){const j=store.get("vd:"+r.tag,null);if(!j)continue;try{vs.push([r,parseVillage(j)])}catch(e){}}
   const groups=[],jobs=[];let ts=0;const byFinish=(a,b)=>a.finish-b.finish;
   for(const [r,v] of vs){ts=Math.max(ts,v.ts);const g=[];
-    for(const j of busyJobs(v))g.push({kind:j.kind==="h"?"Hero":"Builder",name:j.name+" "+(j.from+1),finish:j.finish});
-    for(const id in v.units){const u=v.units[id];if(u.timer)g.push({kind:"Lab",name:(uDef(id).n||"Research")+" "+(u.lvl+1),finish:v.ts+u.timer*1000})}
-    for(const id in v.pets){const p=v.pets[id];if(p.timer)g.push({kind:"Pet",name:((GD.P[id]||{}).n||"Pet")+" "+(p.lvl+1),finish:v.ts+p.timer*1000})}
+    for(const j of busyJobs(v))g.push({kind:j.kind==="h"?"Hero":"Builder",name:j.name+" "+(j.from+1),finish:j.finish,ak:j.kind==="h"?"hero":"builder"});
+    for(const id in v.units){const u=v.units[id];if(u.timer)g.push({kind:"Lab",name:(uDef(id).n||"Research")+" "+(u.lvl+1),finish:v.ts+u.timer*1000,ak:"lab"})}
+    for(const id in v.pets){const p=v.pets[id];if(p.timer)g.push({kind:"Pet",name:((GD.P[id]||{}).n||"Pet")+" "+(p.lvl+1),finish:v.ts+p.timer*1000,ak:"pet"})}
     g.sort(byFinish);groups.push({name:vilName(r),tag:r.tag,th:v.th,jobs:g});
     // Builder Base gets its own section under the village. done: what the row says once the time has
     // passed (older app builds say "Done").
     const bg=[];
-    if(v.bb){for(const x of v.bb.jobs)bg.push({kind:x.kind==="lab"?"Star Lab":x.kind==="h"?"BB Hero":"BB Builder",name:x.name+" "+(x.from+1),finish:x.finish});
-      bg.push({kind:"Free boost",name:"Clock Tower",finish:v.bb.ready,done:"Ready"});
+    if(v.bb){for(const x of v.bb.jobs)bg.push({kind:x.kind==="lab"?"Star Lab":x.kind==="h"?"BB Hero":"BB Builder",name:x.name+" "+(x.from+1),finish:x.finish,ak:"bb"});
+      bg.push({kind:"Free boost",name:"Clock Tower",finish:v.bb.ready,done:"Ready",ak:"ct"});
       bg.sort(byFinish);groups.push({name:(vs.length>1?vilName(r)+" · ":"")+"Builder Base",tag:r.tag,bb:true,jobs:bg})}
     const pre=vs.length>1?vilName(r)+": ":"";for(const x of [...g,...bg])jobs.push(Object.assign({},x,{name:pre+x.name}))}
   jobs.sort(byFinish);
@@ -1321,52 +1325,76 @@ function syncWidget(){
   try{RushPlannerAndroid.setTimers(JSON.stringify({saved:vs.length>0,tag:V?V.tag:"",ts:ts||(V?V.ts:0),jobs,groups}))}catch(e){}
 }
 
-// Android app only: one tap sets an alarm in the phone's clock app for the upgrade that finishes
-// first, across every saved village, home village and Builder Base. The Clock Tower's free boost
-// is not an upgrade, so it is left out. Older app builds and browsers have no setAlarm.
+// Android app only: alarms in the phone's clock app. The header button sets one for the upgrade
+// that finishes first in the selected village; the Alarms tab chooses which timers count and lists
+// each one with its own button. Older app builds and browsers have no setAlarm, so both stay hidden.
+// Settings are shared by all villages: kinds (builder, hero, lab, pet, bb, ct) and early (minutes).
+const ALARM_KINDS=[["builder","Builders"],["hero","Heroes"],["lab","Lab"],["pet","Pets"],["bb","Builder Base"],["ct","Clock Tower boost"]];
+const ALARM_DEF={kinds:["builder","hero","lab","pet","bb"],early:0};
+function alarmSet(){const a=Object.assign({},ALARM_DEF,store.get("alarm",{}));if(!Array.isArray(a.kinds))a.kinds=ALARM_DEF.kinds.slice();return a}
 function canAlarm(){return !!window.RushPlannerAndroid&&typeof RushPlannerAndroid.setAlarm==="function"}
-function nextUpgrade(){
-  const now=Date.now();let best=null;
-  for(const g of timerGroups().groups)for(const j of g.jobs){
-    if(j.done||j.finish<=now)continue;
-    if(!best||j.finish<best.finish)best={name:j.name,where:g.name,finish:j.finish}}
-  return best;
+// Running timers of the selected village that the settings let through, soonest first.
+function alarmJobs(){
+  const now=Date.now(),k=alarmSet().kinds,out=[];
+  for(const g of timerGroups().groups)if(g.tag===VIL.active)for(const j of g.jobs){
+    if(j.finish<=now||!k.includes(j.ak))continue;
+    out.push({name:j.name,kind:j.kind,where:g.name,finish:j.finish})}
+  return out.sort((a,b)=>a.finish-b.finish);
 }
 function alarmButton(){
   const b=document.getElementById("alarmBtn");if(!b)return;
-  b.hidden=!canAlarm()||!VIL.list.length;
-  const n=b.hidden?null:nextUpgrade();
-  b.disabled=!n;b.title=n?"Set an alarm for "+n.name+" ("+n.where+")":"Nothing is upgrading";
+  b.hidden=!canAlarm()||!V;
+  const n=b.hidden?null:alarmJobs()[0];
+  b.disabled=!n;b.title=n?"Set an alarm for "+n.name+" ("+n.where+")":"Nothing to set an alarm for";
 }
 function alarmSay(t){const m=document.getElementById("alarmMsg");m.textContent=t;m.hidden=!t;clearTimeout(alarmSay.t);if(t)alarmSay.t=setTimeout(()=>{m.hidden=true},12000)}
-document.getElementById("alarmBtn").onclick=()=>{
-  const n=nextUpgrade();if(!n){alarmSay("Nothing is upgrading in your saved exports.");alarmButton();return}
-  const when=new Date(Math.ceil(n.finish/60000)*60000).toLocaleString([], {weekday:"short",hour:"numeric",minute:"2-digit"});
-  let r="";try{r=RushPlannerAndroid.setAlarm(n.finish,n.name+" · "+n.where)}catch(e){r="error"}
+function setAlarmFor(n){
+  if(!n){alarmSay("Nothing to set an alarm for in "+vilName(vilRec(VIL.active))+". Check the Alarms tab.");alarmButton();return}
+  const early=alarmSet().early*60000;
+  // Ring early when asked, but never before now: then it rings at the finish time instead.
+  const at=n.finish-early>Date.now()+60000?n.finish-early:n.finish;
+  const when=new Date(Math.ceil(at/60000)*60000).toLocaleString([], {weekday:"short",hour:"numeric",minute:"2-digit"});
+  const what=n.name+" ("+n.where+")",pre=at<n.finish?" ("+alarmSet().early+" min early)":"";
+  let r="";try{r=RushPlannerAndroid.setAlarm(at,n.name+" · "+n.where)}catch(e){r="error"}
   alarmSay(({
-    ok:"Alarm set for "+when+": "+n.name+" ("+n.where+").",
-    weekly:"Alarm set for "+when+": "+n.name+" ("+n.where+"). It's more than a day away, so the clock app makes it a weekly alarm. Turn it off once it rings.",
-    far:n.name+" ("+n.where+") finishes "+when+", over a week away. Clock apps can't set a one-off alarm that far ahead.",
+    ok:"Alarm set for "+when+pre+": "+what+".",
+    weekly:"Alarm set for "+when+pre+": "+what+". It's more than a day away, so the clock app makes it a weekly alarm. Turn it off once it rings.",
+    far:what+" finishes "+when+", over a week away. Clock apps can't set a one-off alarm that far ahead.",
     past:n.name+" is already done. Paste a fresh export.",
     noapp:"No clock app on this phone takes alarms from other apps."
   })[r]||"Couldn't set the alarm.");
-};
+}
+document.getElementById("alarmBtn").onclick=()=>setAlarmFor(alarmJobs()[0]);
+
+function renderAlarms(){
+  const tab=document.querySelector('#tabs button[data-v="alarms"]'),el=document.getElementById("v-alarms");
+  tab.hidden=!canAlarm()||!V;if(tab.hidden){el.innerHTML="";return}
+  const a=alarmSet(),now=Date.now(),js=alarmJobs();
+  let h='<div><h2>Alarms</h2><p class="sub" style="margin-bottom:8px">⏰ Set alarm at the top sets one in your clock app for the first upgrade on this list. Only '+esc(vilName(vilRec(VIL.active)))+' counts; switch village to change that. Times are from your last export.</p></div>';
+  h+='<div><h3>Count these timers</h3><div class="picks">'+ALARM_KINDS.map(([k,l])=>'<button class="atog" data-ak="'+k+'" aria-pressed="'+a.kinds.includes(k)+'">'+l+'</button>').join("")+'</div></div>';
+  h+='<div><h3>Ring early</h3><div class="seg">'+[0,5,10,15,30].map(m=>'<button data-early="'+m+'" aria-pressed="'+(a.early===m)+'">'+(m?m+" min":"On time")+'</button>').join("")+'</div></div>';
+  h+='<div><h3>Coming up</h3><div class="list">'+(js.length?js.map((j,i)=>'<div class="row"><div class="name">'+esc(j.name)+' <span class="muted">· '+esc(j.kind)+'</span></div><div class="right"><button class="btn" data-al="'+i+'" aria-label="Set alarm for '+esc(j.name)+'" style="padding:5px 12px">⏰</button></div><div class="why">'+dur((j.finish-now)/1000)+' · '+whenD(j.finish)+'</div></div>').join(""):'<div class="row dim"><div class="name">Nothing running that these settings count.</div></div>')+'</div></div>';
+  el.innerHTML=h;
+  el.querySelectorAll(".atog").forEach(b=>b.onclick=()=>{const s=alarmSet(),k=b.dataset.ak,i=s.kinds.indexOf(k);if(i>=0)s.kinds.splice(i,1);else s.kinds.push(k);store.set("alarm",s);renderAlarms();alarmButton()});
+  el.querySelectorAll("[data-early]").forEach(b=>b.onclick=()=>{const s=alarmSet();s.early=+b.dataset.early;store.set("alarm",s);renderAlarms()});
+  el.querySelectorAll("[data-al]").forEach(b=>b.onclick=()=>setAlarmFor(js[+b.dataset.al]));
+}
 
 function renderAll(keepImport){
   // No village yet: only the Update tab, to paste the first export.
   document.querySelectorAll("#tabs button").forEach(b=>b.hidden=!V&&b.dataset.v!=="import");
   if(!V){syncWidget();headerMeta();renderVillageSelect();renderImport();show("import",true);return}
-  syncWidget();headerMeta();renderVillageSelect();renderPlan();renderTimeline();renderMyPlan();renderLab();renderHeroes();renderTracker();renderBB();renderGuide();if(!keepImport)renderImport();else{
+  syncWidget();headerMeta();renderVillageSelect();renderPlan();renderTimeline();renderMyPlan();renderLab();renderHeroes();renderTracker();renderBB();renderAlarms();renderGuide();if(!keepImport)renderImport();else{
   // refresh pick states without wiping the paste box
   document.querySelectorAll(".pick").forEach(b=>b.setAttribute("aria-pressed",SET[b.dataset.k].includes(+b.dataset.id)))}}
 
 // tabs
 function show(v,auto){
-  if(!V&&v!=="import")v="import";document.querySelectorAll("#tabs button").forEach(b=>b.setAttribute("aria-selected",b.dataset.v===v));
+  if(!V&&v!=="import")v="import";if(v==="alarms"&&!canAlarm())v="plan";document.querySelectorAll("#tabs button").forEach(b=>b.setAttribute("aria-selected",b.dataset.v===v));
   document.querySelectorAll("section.view").forEach(s=>s.hidden=s.id!=="v-"+v);document.querySelector(".wrap").classList.toggle("wide",v==="timeline"||v==="myplan");if(!auto)store.set("tab",v);document.querySelectorAll("#v-"+v+" .gantt").forEach(g=>g._refresh&&g._refresh())}
 document.getElementById("tabs").onclick=e=>{const b=e.target.closest("button");if(b)show(b.dataset.v)};
 
 load();renderAll();
-const initTab=(location.hash||"").slice(1);show(["plan","timeline","myplan","lab","heroes","tracker","bb","guide","import"].includes(initTab)?initTab:store.get("tab","plan"),!V);
+const initTab=(location.hash||"").slice(1);show(["plan","timeline","myplan","lab","heroes","tracker","bb","alarms","guide","import"].includes(initTab)?initTab:store.get("tab","plan"),!V);
 setInterval(()=>{headerMeta();if(V){renderPlan();renderBB()}},60000);
 </script>
