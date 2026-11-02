@@ -739,7 +739,8 @@ function renderTimeline(){
 // each queue (a builder, the Lab, the Pet House) runs its items back to back after its current upgrade.
 // Saved shape: {q:{b1:[{o,to}],...,lab:[...],pet:[...]}, run:{objKey:queueId}} (run = which builder holds a running upgrade).
 let MP=vget("vp",null)||{q:{},run:{}};
-const mpSave=()=>vset("vp",MP);
+// A plan change moves "Builder goes idle" alarms, so refresh the Alarms tab and the widget after it.
+const mpSave=()=>{vset("vp",MP);clearTimeout(mpSave.t);mpSave.t=setTimeout(()=>{if(V){syncWidget();renderAlarms()}},0)};
 const TH_MAX=()=>GD.B[ID.TH].L.length;
 // How many of a building a Town Hall allows (merged Cannons/Archer Towers/Wizard Towers keep their TH15 count).
 function instCount(id,th){if([ID.CANNON,ID.AT,ID.WT].includes(id))th=Math.min(th,15);return requiredCounts(th)[id]||0}
@@ -1322,16 +1323,22 @@ function syncWidget(){
   alarmButton();
   if(!window.RushPlannerAndroid)return;
   const {vs,groups,jobs,ts}=timerGroups();
-  try{RushPlannerAndroid.setTimers(JSON.stringify({saved:vs.length>0,tag:V?V.tag:"",ts:ts||(V?V.ts:0),jobs,groups}))}catch(e){}
+  // alarms: what the widget's alarm button can set, same list and settings as the Alarms tab.
+  let alarms=[];try{if(V)alarms=alarmJobs().map(n=>({at:alarmAt(n),finish:n.finish,label:n.name+" · "+n.where}))}catch(e){}
+  try{RushPlannerAndroid.setTimers(JSON.stringify({saved:vs.length>0,tag:V?V.tag:"",ts:ts||(V?V.ts:0),jobs,groups,alarms}))}catch(e){}
 }
 
 // Android app only: alarms in the phone's clock app. The header button sets one for the upgrade
 // that finishes first in the selected village; the Alarms tab chooses which timers count and lists
 // each one with its own button. Older app builds and browsers have no setAlarm, so both stay hidden.
 // Settings are shared by all villages: kinds (builder, hero, lab, pet, bb, ct) and early (minutes).
-const ALARM_KINDS=[["builder","Builders"],["hero","Heroes"],["lab","Lab"],["pet","Pets"],["bb","Builder Base"],["ct","Clock Tower boost"]];
-const ALARM_DEF={kinds:["builder","hero","lab","pet","bb"],early:0};
-function alarmSet(){const a=Object.assign({},ALARM_DEF,store.get("alarm",{}));if(!Array.isArray(a.kinds))a.kinds=ALARM_DEF.kinds.slice();return a}
+const ALARM_KINDS=[["builder","Builders"],["idle","Builder goes idle"],["hero","Heroes"],["lab","Lab"],["pet","Pets"],["bb","Builder Base"],["ct","Clock Tower boost"]];
+const ALARM_DEF={kinds:["builder","idle","hero","lab","pet","bb"],early:0};
+// seen: kinds the viewer has had the chance to toggle, so a kind added later starts at its default.
+function alarmSet(){const a=Object.assign({},ALARM_DEF,store.get("alarm",{}));if(!Array.isArray(a.kinds))a.kinds=ALARM_DEF.kinds.slice();
+  const seen=Array.isArray(a.seen)?a.seen:["builder","hero","lab","pet","bb","ct"];
+  for(const k of ALARM_DEF.kinds)if(!seen.includes(k)&&!a.kinds.includes(k))a.kinds.push(k);
+  a.seen=ALARM_KINDS.map(x=>x[0]);return a}
 function canAlarm(){return !!window.RushPlannerAndroid&&typeof RushPlannerAndroid.setAlarm==="function"}
 // Running timers of the selected village that the settings let through, soonest first.
 function alarmJobs(){
@@ -1339,6 +1346,12 @@ function alarmJobs(){
   for(const g of timerGroups().groups)if(g.tag===VIL.active)for(const j of g.jobs){
     if(j.finish<=now||!k.includes(j.ak))continue;
     out.push({name:j.name,kind:j.kind,where:g.name,finish:j.finish})}
+  // Builder goes idle: when a builder's My Plan queue runs out. With nothing planned that is the
+  // builder's own timer, which the Builders entry already covers when that is on.
+  if(V&&k.includes("idle"))try{
+    for(const q of mpSchedule(V,mpObjects(V)).queues)if(q.type==="b"&&(q.head||q.items.length)&&q.end>now+60000&&(q.items.length||!k.includes("builder")))
+      out.push({name:q.label+" idle",kind:q.items.length?"My Plan runs out":"Nothing planned next",where:vilName(vilRec(VIL.active)),finish:q.end})
+  }catch(e){}
   return out.sort((a,b)=>a.finish-b.finish);
 }
 function alarmButton(){
@@ -1348,11 +1361,11 @@ function alarmButton(){
   b.disabled=!n;b.title=n?"Set an alarm for "+n.name+" ("+n.where+")":"Nothing to set an alarm for";
 }
 function alarmSay(t){const m=document.getElementById("alarmMsg");m.textContent=t;m.hidden=!t;clearTimeout(alarmSay.t);if(t)alarmSay.t=setTimeout(()=>{m.hidden=true},12000)}
+// Ring early when asked, but never before now: then it rings at the finish time instead.
+function alarmAt(n){const early=alarmSet().early*60000;return n.finish-early>Date.now()+60000?n.finish-early:n.finish}
 function setAlarmFor(n){
   if(!n){alarmSay("Nothing to set an alarm for in "+vilName(vilRec(VIL.active))+". Check the Alarms tab.");alarmButton();return}
-  const early=alarmSet().early*60000;
-  // Ring early when asked, but never before now: then it rings at the finish time instead.
-  const at=n.finish-early>Date.now()+60000?n.finish-early:n.finish;
+  const at=alarmAt(n);
   const when=new Date(Math.ceil(at/60000)*60000).toLocaleString([], {weekday:"short",hour:"numeric",minute:"2-digit"});
   const what=n.name+" ("+n.where+")",pre=at<n.finish?" ("+alarmSet().early+" min early)":"";
   let r="";try{r=RushPlannerAndroid.setAlarm(at,n.name+" · "+n.where)}catch(e){r="error"}
@@ -1370,13 +1383,13 @@ function renderAlarms(){
   const tab=document.querySelector('#tabs button[data-v="alarms"]'),el=document.getElementById("v-alarms");
   tab.hidden=!canAlarm()||!V;if(tab.hidden){el.innerHTML="";return}
   const a=alarmSet(),now=Date.now(),js=alarmJobs();
-  let h='<div><h2>Alarms</h2><p class="sub" style="margin-bottom:8px">⏰ Set alarm at the top sets one in your clock app for the first upgrade on this list. Only '+esc(vilName(vilRec(VIL.active)))+' counts; switch village to change that. Times are from your last export.</p></div>';
+  let h='<div><h2>Alarms</h2><p class="sub" style="margin-bottom:8px">⏰ Set alarm at the top, and the ⏰ on the home-screen widget, set one in your clock app for the first upgrade on this list. Only '+esc(vilName(vilRec(VIL.active)))+' counts; switch village to change that. Times are from your last export.</p></div>';
   h+='<div><h3>Count these timers</h3><div class="picks">'+ALARM_KINDS.map(([k,l])=>'<button class="atog" data-ak="'+k+'" aria-pressed="'+a.kinds.includes(k)+'">'+l+'</button>').join("")+'</div></div>';
   h+='<div><h3>Ring early</h3><div class="seg">'+[0,5,10,15,30].map(m=>'<button data-early="'+m+'" aria-pressed="'+(a.early===m)+'">'+(m?m+" min":"On time")+'</button>').join("")+'</div></div>';
   h+='<div><h3>Coming up</h3><div class="list">'+(js.length?js.map((j,i)=>'<div class="row"><div class="name">'+esc(j.name)+' <span class="muted">· '+esc(j.kind)+'</span></div><div class="right"><button class="btn" data-al="'+i+'" aria-label="Set alarm for '+esc(j.name)+'" style="padding:5px 12px">⏰</button></div><div class="why">'+dur((j.finish-now)/1000)+' · '+whenD(j.finish)+'</div></div>').join(""):'<div class="row dim"><div class="name">Nothing running that these settings count.</div></div>')+'</div></div>';
   el.innerHTML=h;
-  el.querySelectorAll(".atog").forEach(b=>b.onclick=()=>{const s=alarmSet(),k=b.dataset.ak,i=s.kinds.indexOf(k);if(i>=0)s.kinds.splice(i,1);else s.kinds.push(k);store.set("alarm",s);renderAlarms();alarmButton()});
-  el.querySelectorAll("[data-early]").forEach(b=>b.onclick=()=>{const s=alarmSet();s.early=+b.dataset.early;store.set("alarm",s);renderAlarms()});
+  el.querySelectorAll(".atog").forEach(b=>b.onclick=()=>{const s=alarmSet(),k=b.dataset.ak,i=s.kinds.indexOf(k);if(i>=0)s.kinds.splice(i,1);else s.kinds.push(k);store.set("alarm",s);renderAlarms();syncWidget()});
+  el.querySelectorAll("[data-early]").forEach(b=>b.onclick=()=>{const s=alarmSet();s.early=+b.dataset.early;store.set("alarm",s);renderAlarms();syncWidget()});
   el.querySelectorAll("[data-al]").forEach(b=>b.onclick=()=>setAlarmFor(js[+b.dataset.al]));
 }
 

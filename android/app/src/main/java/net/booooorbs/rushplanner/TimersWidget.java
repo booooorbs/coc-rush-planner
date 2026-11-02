@@ -8,6 +8,7 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.os.SystemClock;
+import android.view.View;
 import android.widget.RemoteViews;
 
 import org.json.JSONObject;
@@ -85,6 +86,10 @@ public class TimersWidget extends AppWidgetProvider {
 
         // The reload button recomputes the countdowns in place; nothing on the widget opens the app.
         views.setOnClickPendingIntent(R.id.reload, refreshIntent(context));
+        // The alarm button sets a clock alarm for the next upgrade, through a screenless activity.
+        views.setOnClickPendingIntent(R.id.alarm, PendingIntent.getActivity(context, 1,
+                new Intent(context, AlarmActivity.class),
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE));
         views.setRemoteAdapter(R.id.list, new Intent(context, TimersWidgetService.class));
         views.setEmptyView(R.id.list, R.id.message);
 
@@ -94,6 +99,8 @@ public class TimersWidget extends AppWidgetProvider {
             showMessage(views, context.getString(R.string.widget_no_data));
             return views;
         }
+        // Pages from before the Alarms tab send no alarm list.
+        views.setViewVisibility(R.id.alarm, data.has("alarms") ? View.VISIBLE : View.GONE);
         long now = System.currentTimeMillis();
         views.setTextViewText(R.id.updated, context.getString(R.string.widget_updated, ago(now - data.optLong("ts"))));
         showMessage(views, context.getString(R.string.widget_idle));

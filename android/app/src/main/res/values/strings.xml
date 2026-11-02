@@ -9,4 +9,11 @@
     <string name="widget_done">Done</string>
     <string name="widget_village_idle">Nothing upgrading</string>
     <string name="widget_reload">Refresh timers</string>
+    <string name="widget_alarm">Set alarm for next upgrade</string>
+    <string name="alarm_set">Alarm set for %1$s: %2$s</string>
+    <string name="alarm_weekly">Alarm set for %1$s: %2$s. It is more than a day away, so it repeats weekly. Turn it off once it rings.</string>
+    <string name="alarm_far">%1$s is over a week away. Clock apps can\'t set a one-off alarm that far ahead.</string>
+    <string name="alarm_no_app">No clock app on this phone takes alarms from other apps.</string>
+    <string name="alarm_none">Nothing to set an alarm for. Check the Alarms tab in Rush Planner.</string>
+    <string name="alarm_open_app">Open Rush Planner once to update, then try again.</string>
 </resources>
