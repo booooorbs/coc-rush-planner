@@ -5,6 +5,7 @@ import android.content.ActivityNotFoundException;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
+import android.provider.AlarmClock;
 import android.view.Window;
 import android.webkit.JavascriptInterface;
 import android.webkit.WebResourceRequest;
@@ -22,6 +23,8 @@ import androidx.webkit.WebViewAssetLoader;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
+import java.util.ArrayList;
+import java.util.Calendar;
 
 /** Hosts dist/rush-planner.html (bundled as an asset) in a full-screen WebView. */
 public class MainActivity extends Activity {
@@ -126,6 +129,41 @@ public class MainActivity extends Activity {
         @JavascriptInterface
         public void checkForUpdates() {
             runOnUiThread(() -> updater.check(true));
+        }
+
+        /**
+         * Sets an alarm in the phone's clock app for finishMs (epoch millis), rounded up to the
+         * minute. Clock apps take an hour and minute, not a date, so an alarm more than a day out
+         * is set on its weekday, which clock apps treat as weekly. Returns "ok", "weekly", "far"
+         * (more than a week out, nothing set), "past" or "noapp".
+         */
+        @JavascriptInterface
+        public String setAlarm(double finishMs, String label) {
+            long now = System.currentTimeMillis();
+            Calendar at = Calendar.getInstance();
+            at.setTimeInMillis((long) Math.ceil(finishMs / 60000.0) * 60000L);
+            long ahead = at.getTimeInMillis() - now;
+            if (ahead <= 0) return "past";
+            if (ahead > 7L * 24 * 3600 * 1000) return "far";
+            boolean weekly = ahead > 24L * 3600 * 1000;
+            Intent i = new Intent(AlarmClock.ACTION_SET_ALARM)
+                    .putExtra(AlarmClock.EXTRA_HOUR, at.get(Calendar.HOUR_OF_DAY))
+                    .putExtra(AlarmClock.EXTRA_MINUTES, at.get(Calendar.MINUTE))
+                    .putExtra(AlarmClock.EXTRA_MESSAGE, label == null ? "Upgrade done" : label)
+                    // Show the clock app for a weekly alarm so the repeat is visible.
+                    .putExtra(AlarmClock.EXTRA_SKIP_UI, !weekly)
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            if (weekly) {
+                ArrayList<Integer> days = new ArrayList<>();
+                days.add(at.get(Calendar.DAY_OF_WEEK));
+                i.putExtra(AlarmClock.EXTRA_DAYS, days);
+            }
+            try {
+                startActivity(i);
+            } catch (ActivityNotFoundException | SecurityException e) {
+                return "noapp";
+            }
+            return weekly ? "weekly" : "ok";
         }
     }
 
