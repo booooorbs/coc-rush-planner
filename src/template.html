@@ -113,6 +113,8 @@ textarea{width:100%;min-height:150px;font:12px/1.4 ui-monospace,SFMono-Regular,M
 .msg{font-size:14px;font-weight:700}
 .msg.err{color:var(--crit)} .msg.ok{color:var(--ok)}
 .field{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.alarm{flex:none;padding:7px 12px;font-size:13px}
+.alarm-msg{font-size:13px;font-weight:700;margin:6px 0 0;color:var(--muted)}
 .vsel{font:inherit;font-weight:700;font-size:13px;max-width:100%;padding:4px 8px;border-radius:8px;border:1px solid var(--line);background:var(--surface);color:var(--ink);margin-top:4px}
 .vlist{display:flex;flex-direction:column;gap:8px;margin-bottom:8px}
 .vrow{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px 12px;display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px}
@@ -242,7 +244,9 @@ select.mv{max-width:104px}
         <div class="meta" id="meta"></div>
         <select class="vsel" id="vsel" aria-label="Village" hidden></select>
       </div>
+      <button class="btn alarm" id="alarmBtn" hidden>⏰ Set alarm</button>
     </div>
+    <p class="alarm-msg" id="alarmMsg" role="status" hidden></p>
     <nav class="tabs" role="tablist" id="tabs">
       <button role="tab" data-v="plan" aria-selected="true">Plan</button>
       <button role="tab" data-v="timeline" aria-selected="false">Timeline</button>
@@ -1292,8 +1296,7 @@ function appUpdates(){return !!window.RushPlannerAndroid&&typeof RushPlannerAndr
 // groups: one entry per village with a saved export, in the switcher's order, for app builds that
 // show a heading per village. jobs: the same timers in one list, names prefixed with the village
 // once there are several, for older app builds.
-function syncWidget(){
-  if(!window.RushPlannerAndroid)return;
+function timerGroups(){
   const vs=[];for(const r of VIL.list){const j=store.get("vd:"+r.tag,null);if(!j)continue;try{vs.push([r,parseVillage(j)])}catch(e){}}
   const groups=[],jobs=[];let ts=0;const byFinish=(a,b)=>a.finish-b.finish;
   for(const [r,v] of vs){ts=Math.max(ts,v.ts);const g=[];
@@ -1309,8 +1312,45 @@ function syncWidget(){
       bg.sort(byFinish);groups.push({name:(vs.length>1?vilName(r)+" · ":"")+"Builder Base",tag:r.tag,bb:true,jobs:bg})}
     const pre=vs.length>1?vilName(r)+": ":"";for(const x of [...g,...bg])jobs.push(Object.assign({},x,{name:pre+x.name}))}
   jobs.sort(byFinish);
+  return {vs,groups,jobs,ts};
+}
+function syncWidget(){
+  alarmButton();
+  if(!window.RushPlannerAndroid)return;
+  const {vs,groups,jobs,ts}=timerGroups();
   try{RushPlannerAndroid.setTimers(JSON.stringify({saved:vs.length>0,tag:V?V.tag:"",ts:ts||(V?V.ts:0),jobs,groups}))}catch(e){}
 }
+
+// Android app only: one tap sets an alarm in the phone's clock app for the upgrade that finishes
+// first, across every saved village, home village and Builder Base. The Clock Tower's free boost
+// is not an upgrade, so it is left out. Older app builds and browsers have no setAlarm.
+function canAlarm(){return !!window.RushPlannerAndroid&&typeof RushPlannerAndroid.setAlarm==="function"}
+function nextUpgrade(){
+  const now=Date.now();let best=null;
+  for(const g of timerGroups().groups)for(const j of g.jobs){
+    if(j.done||j.finish<=now)continue;
+    if(!best||j.finish<best.finish)best={name:j.name,where:g.name,finish:j.finish}}
+  return best;
+}
+function alarmButton(){
+  const b=document.getElementById("alarmBtn");if(!b)return;
+  b.hidden=!canAlarm()||!VIL.list.length;
+  const n=b.hidden?null:nextUpgrade();
+  b.disabled=!n;b.title=n?"Set an alarm for "+n.name+" ("+n.where+")":"Nothing is upgrading";
+}
+function alarmSay(t){const m=document.getElementById("alarmMsg");m.textContent=t;m.hidden=!t;clearTimeout(alarmSay.t);if(t)alarmSay.t=setTimeout(()=>{m.hidden=true},12000)}
+document.getElementById("alarmBtn").onclick=()=>{
+  const n=nextUpgrade();if(!n){alarmSay("Nothing is upgrading in your saved exports.");alarmButton();return}
+  const when=new Date(Math.ceil(n.finish/60000)*60000).toLocaleString([], {weekday:"short",hour:"numeric",minute:"2-digit"});
+  let r="";try{r=RushPlannerAndroid.setAlarm(n.finish,n.name+" · "+n.where)}catch(e){r="error"}
+  alarmSay(({
+    ok:"Alarm set for "+when+": "+n.name+" ("+n.where+").",
+    weekly:"Alarm set for "+when+": "+n.name+" ("+n.where+"). It's more than a day away, so the clock app makes it a weekly alarm. Turn it off once it rings.",
+    far:n.name+" ("+n.where+") finishes "+when+", over a week away. Clock apps can't set a one-off alarm that far ahead.",
+    past:n.name+" is already done. Paste a fresh export.",
+    noapp:"No clock app on this phone takes alarms from other apps."
+  })[r]||"Couldn't set the alarm.");
+};
 
 function renderAll(keepImport){
   // No village yet: only the Update tab, to paste the first export.
